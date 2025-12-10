@@ -1,0 +1,26 @@
+version: "3.9"
+
+services:
+  hedera-integration-service:
+    build: .
+    container_name: hedera_integration_service
+    env_file: .env.dev
+    environment:
+      - ENV=dev # Switch between .env.dev, .env.prod, etc.
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app # Hot reload during development
+
+  integration-tests:
+    build: .
+    depends_on:
+      - hedera-integration-service
+    env_file:
+      - .env.test.integration
+    command: >
+      sh -c "
+        echo '✅ Waiting for API to become ready...' &&
+        sleep 3 &&
+        pytest -m integration -v --maxfail=1 --disable-warnings
+      "

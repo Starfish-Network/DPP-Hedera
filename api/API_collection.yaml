@@ -1,0 +1,133 @@
+type: collection.insomnia.rest/5.0
+name: My first collection
+meta:
+  id: wrk_593b8dba41de4e3aafb19e8ed8915f2b
+  created: 1759588654855
+  modified: 1759588654855
+  description: ""
+collection:
+  - url: localhost:8000/api/v1/events
+    name: events
+    meta:
+      id: req_640d00fb81454fc59a5318cc052cd8e4
+      created: 1759588654922
+      modified: 1763044358789
+      isPrivate: false
+      description: ""
+      sortKey: -1759588654922
+    method: POST
+    body:
+      mimeType: application/json
+      text: |-
+        {
+                "eventType": "unpacking",
+                "container_id": "983457348",
+                "event_time": "2025-10-04T12:08:00.000Z",
+                "event_timezone_offset": "+01:00",
+        				"output_items": [{
+        					"epc": "urn:epc:class:lgtin:9506001.3456",
+                    "quantity": 1.0,
+                    "unit_of_measurement": "kg"
+        				}]
+            }
+    headers:
+      - name: Content-Type
+        value: application/json
+      - name: User-Agent
+        value: insomnia/11.6.1
+    settings:
+      renderRequestBody: true
+      encodeUrl: true
+      followRedirects: global
+      cookies:
+        send: true
+        store: true
+      rebuildPath: true
+  - url: localhost:8000/api/v1/trace/urn:epc:class:lgtin:9506001.3456
+    name: trace
+    meta:
+      id: req_dbbcc5e9516a4f5cbf45bd07239236cd
+      created: 1760044188278
+      modified: 1763127635293
+      isPrivate: false
+      description: ""
+      sortKey: -1760044188278
+    method: GET
+    headers:
+      - name: User-Agent
+        value: insomnia/11.6.1
+    settings:
+      renderRequestBody: true
+      encodeUrl: true
+      followRedirects: global
+      cookies:
+        send: true
+        store: true
+      rebuildPath: true
+  - url: localhost:8000/api/v1/compliance/check
+    name: compliance
+    meta:
+      id: req_81fb05ed7804427fb262c354016007d1
+      created: 1762695921276
+      modified: 1763053756538
+      isPrivate: false
+      description: ""
+      sortKey: -1762695921276
+    method: POST
+    body:
+      mimeType: application/json
+      text: >-
+        {
+                "eventType": "shipping",
+                "event_time": "2025-10-03T12:08:00.000Z",
+                "shipFrom": "9506001112229",
+                "shipTo": "9506001112230",
+                "items": [{"epc": "urn:epc:class:lgtin:9506000.1233.a", "quantity": 12.0, "unit_of_measurement": "kg"}]
+        }
+    headers:
+      - name: Content-Type
+        value: application/json
+      - name: User-Agent
+        value: insomnia/12.0.0
+    settings:
+      renderRequestBody: true
+      encodeUrl: true
+      followRedirects: global
+      cookies:
+        send: true
+        store: true
+      rebuildPath: true
+  - url: localhost:8000/api/v1/compliance/status/76602f077e8d3247a285c90bc1f077db962dd58c16ec5291710ae99f6591b8e3
+    name: compliance status
+    meta:
+      id: req_53dab41351c547e5b42a45db79d71b41
+      created: 1763061235466
+      modified: 1763128085394
+      isPrivate: false
+      description: ""
+      sortKey: -1761370054777
+    method: GET
+    headers:
+      - name: User-Agent
+        value: insomnia/12.0.0
+    settings:
+      renderRequestBody: true
+      encodeUrl: true
+      followRedirects: global
+      cookies:
+        send: true
+        store: true
+      rebuildPath: true
+cookieJar:
+  name: Default Jar
+  meta:
+    id: jar_8fe4b6102c0c23ae9df9cf56d93b0bebb95db23e
+    created: 1759588654858
+    modified: 1759588654858
+environments:
+  name: Base Environment
+  meta:
+    id: env_8fe4b6102c0c23ae9df9cf56d93b0bebb95db23e
+    created: 1759588654857
+    modified: 1759588654857
+    isPrivate: false

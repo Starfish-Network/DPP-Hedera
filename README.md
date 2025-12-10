@@ -1,0 +1,205 @@
+# 🧭 Hedera Supply Chain Traceability DApp
+
+This project implements a food traceability and compliance solution that integrates the Starfish traceability platform with the Hedera Distributed Ledger.
+It immutably records supply chain events (e.g., creating, transforming, packing, shipping, receiving) and provides a web UI to explore full product lineage and event proofs on-chain.
+
+## 🌍 Overview
+
+The goal of this project is to enhance supply chain transparency by immutably storing EPCIS-like event data from the Starfish platform on the Hedera ledger, ensuring:
+
+- Data integrity and immutability via distributed ledger
+- Full traceability across transformations and shipments
+- Compliance verification (e.g., FSMA digital product passports)
+- Interoperability with existing Starfish APIs and applications
+
+## 🧱 Infrastructure Overview
+
+<img width="1018" height="766" alt="image" src="https://github.com/user-attachments/assets/6cec0046-6b00-44be-88e8-53c07541bfdb" />
+
+## ⚙️ Architecture
+``` text
+ ┌──────────────────────┐
+ │  Starfish Platform   │
+ │ (EPCIS Events)       │
+ └──────────┬───────────┘
+            │ POST /api/events
+            ▼
+ ┌───────────────────────────────┐
+ │  FastAPI Integration Service  │
+ │   • Encrypts payloads (KMS)   │
+ │   • Writes to Hedera Topic    │
+ │   • Exposes /api/trace/{id}   │
+ └──────────┬────────────────────┘
+            │
+            ▼
+ ┌───────────────────────────────┐
+ │      Hedera Network           │
+ │   (HCS Topic + Mirror Node)   │
+ └──────────┬────────────────────┘
+            │
+            ▼
+ ┌───────────────────────────────┐
+ │   React Trace Explorer UI     │
+ │   • Calls /api/trace/{id}     │
+ │   • Visualizes lineage graph  │
+ │   • Links to HashScan proofs  │
+ └───────────────────────────────┘
+```
+
+## 🧱 Components
+Component | Tech Stack | Purpose
+--- | --- | ---
+Integration API | FastAPI (Python) | Accepts EPCIS events, encrypts, writes to Hedera
+Encryption Layer | AES-GCM + GCP KMS | Ensures secure storage of sensitive data
+Ledger Integration | Hiero SDK / Hedera Topic | Immutable record of events
+Trace Service | FastAPI + Mirror Node | Rebuilds full lineage graph
+UI Frontend | React + Tailwind + vis-network | Interactive lineage visualization
+Tests | pytest | Unit + integration verification
+
+## 🔐 Data Flow
+
+1. Starfish sends traceability events to /api/events
+
+2. Service encrypts the payload using AES-GCM (data key managed by GCP KMS)
+
+3. Encrypted payload is written to a Hedera Consensus Topic
+
+4. Mirror Node makes these messages queryable
+
+5. /api/trace/{productId} fetches and decrypts all messages, reconstructing upstream/downstream relationships
+
+6. UI displays a graph and timeline of the product’s full supply chain journey
+
+## 🧩 API Endpoints
+Endpoint | Method | Description
+--- | --- | ---
+/api/events | POST | Receives EPCIS-like trace events (creating, shipping, receiving, etc.) and writes them to Hedera
+/api/trace/{productId} | GET | Retrieves a product’s full lineage (upstream/downstream graph) from Hedera’s Mirror Node
+
+## 🔧 Backend Setup
+**Prerequisites**
+
+- Python 3.10+
+
+- Docker + Docker Compose
+
+- Hedera Testnet account + Topic ID
+
+- GCP credentials (for KMS key management)
+
+**Environment Variables (.env)**
+```env
+HEDERA_OPERATOR_ID=0.0.xxxxx
+HEDERA_OPERATOR_KEY=302e02...
+TOPIC_ID=0.0.xxxxx
+GCP_KMS_KEY_ID=projects/.../cryptoKeys/traceability-key
+```
+
+**Run Locally**
+```bash
+docker-compose up --build
+```
+
+FastAPI runs at → http://localhost:8000
+
+API Docs → http://localhost:8000/docs
+
+## 🧪 Testing
+**Unit + Integration Tests**
+```bash
+pytest -v
+```
+
+**Integration Tests in Docker**
+```bash
+docker-compose -f docker-compose.integration.yml up --build --exit-code-from integration-tests
+```
+
+
+These tests:
+
+- Publish test events to /api/events
+
+- Query /api/trace/{productId}
+
+- Validate upstream/downstream lineage
+
+## 💻 Frontend UI
+**Setup**
+```bash
+cd ui/trace-ui
+npm install
+npm run dev
+```
+
+
+The UI runs on → http://localhost:5173
+
+**Features**
+
+🔍 Enter any EPC / Lot to fetch its trace
+
+🌐 Graph view showing upstream (blue) and downstream (green) nodes
+
+🕓 Event timeline of all linked products
+
+🔗 Direct links to Hedera transaction proofs on HashScan
+
+🧾 Click a node → see details in modal (identifier, depth, tx IDs)
+
+## 🧬 Example Trace Flow
+```
+Creating Event → Transforming Event → Packing Event → Shipping Event → Receiving Event
+(A10001)            (A→B)                (B in pallet)       (B→C)           (C received)
+```
+
+**Sample EPC**
+urn:epc:class:lgtin:9506000.1233.a
+
+**Example Trace Graph (simplified)**
+``` text
+A (Created)
+│
+▼
+B (Transformed)
+│
+▼
+C (Packed & Shipped)
+```
+
+## 🧾 Folder Structure
+``` text
+/api/app
+ ├── core/               # Config, KMS, Hedera client setup
+ ├── crypto/             # Encryption utilities (AES-GCM, envelope)
+ ├── models/             # Pydantic event schemas
+ ├── routes/             # FastAPI routes (events, trace)
+ ├── tests/              # Unit + integration tests
+ └── main.py             # App entrypoint
+
+/ui/trace-ui
+ ├── src/
+ │   ├── App.tsx         # Trace Explorer UI
+ │   ├── components/     # UI components
+ │   ├── hooks/          # Data fetching logic
+ │   └── index.css       # Tailwind setup
+ ├── vite.config.ts
+ └── package.json
+
+/contracts
+ ├── compliance.sol    # smart contract for compliance verification
+ ├── deploy_compliance_contract.py # deployment script
+ ├── .env              # contract env vars
+```
+
+## 🧠 Key Design Principles
+
+- Immutable Storage: every event written to Hedera is cryptographically permanent
+
+- Data Encryption: all data encrypted client-side before leaving the platform
+
+- Graph Lineage Reconstruction: full upstream/downstream DAG
+
+- Open Interoperability: JSON-based EPCIS-compatible schema
+
+- Auditable Proofs: mirror node provides transaction receipts and hashes
