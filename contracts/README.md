@@ -4,7 +4,7 @@ To deploy the contract, follow these steps:
 
 ```bash
 docker build -t contract-deployer .
-docker run -rm contract-deployer
+docker run contract-deployer
 ```
 
 This will build the Docker image and run the deployment script contained within it. Make sure you have Docker installed and running on your machine before executing these commands.

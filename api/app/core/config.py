@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     COMPLIANCE_CONTRACT_ID: str | None = None
     TOPIC_ID: str
     NETWORK: str = "testnet"
+    MIRROR_BASE: str = "https://testnet.mirrornode.hedera.com/api/v1"
 
     # GCP KMS
     KMS_PROVIDER: str = "mock"  # "mock" or "gcp"

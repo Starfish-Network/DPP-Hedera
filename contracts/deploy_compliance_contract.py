@@ -53,7 +53,7 @@ def setup_client():
     client = Client(network)
 
     operator_id = AccountId.from_string(os.getenv("OPERATOR_ID"))
-    operator_key = PrivateKey.from_string(os.getenv("OPERATOR_KEY"))
+    operator_key = PrivateKey.from_string_ecdsa(os.getenv("OPERATOR_KEY"))
     client.set_operator(operator_id, operator_key)
 
     return client
@@ -64,7 +64,7 @@ def create_contract(client):
         ContractCreateTransaction()
         .set_admin_key(client.operator_private_key.public_key())
         .set_bytecode(bytecode)
-        .set_gas(2000000)  # 2M gas
+        .set_gas(2000000)  # 2,000,000 gas
         .set_contract_memo("Compliance Contract")
         .execute(client)
     )

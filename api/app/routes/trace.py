@@ -10,16 +10,8 @@ import json
 import requests
 from collections import defaultdict
 from app.helpers.trace import build_edge_list, normalize_epc, traverse
-from hiero_sdk_python.contract.contract_id import ContractId
-from hiero_sdk_python import (
-    ContractFunctionParameters
-)
-from hiero_sdk_python.contract.contract_execute_transaction import (
-    ContractExecuteTransaction,
-)
 
 router = APIRouter(prefix="/trace", tags=["Traceability"])
-MIRROR_BASE = "https://testnet.mirrornode.hedera.com/api/v1"
 
 
 @router.get("/{product_id}", summary="Retrieve full upstream/downstream trace graph for a product")
@@ -30,7 +22,7 @@ def get_trace_graph(product_id: str):
     Output format mirrors Starfish trace structure.
     """
     topic_id = settings.TOPIC_ID
-    url = f"{MIRROR_BASE}/topics/{topic_id}/messages?limit=1000&order=asc"
+    url = f"{settings.MIRROR_BASE}/topics/{topic_id}/messages?limit=1000&order=asc"
     print(f"Fetching messages from URL: {url}")
 
     try:

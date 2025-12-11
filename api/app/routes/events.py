@@ -1,3 +1,4 @@
+import sys
 from app.service.ipfs import download_from_ipfs, upload_to_ipfs
 from fastapi import APIRouter, HTTPException, File, UploadFile
 from fastapi.responses import StreamingResponse
@@ -6,7 +7,7 @@ from app.core.kms import get_kms
 from app.crypto.encryption import envelope_encrypt, file_envelope_decrypt, file_envelope_encrypt
 from app.core.config import settings
 from app.models.starfish_events import StarfishEvent
-from hiero_sdk_python import TopicMessageSubmitTransaction, TopicId
+from hiero_sdk_python import TopicCreateTransaction, TopicMessageSubmitTransaction, TopicId
 from hiero_sdk_python.contract.contract_id import ContractId
 from hiero_sdk_python.contract.contract_call_query import ContractCallQuery
 from hiero_sdk_python.contract.contract_execute_transaction import (
