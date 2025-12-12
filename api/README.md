@@ -14,6 +14,18 @@ All persisted data lives on Hedera; reads are served via the Mirror Node.
 <img width="1018" height="766" alt="image" src="https://github.com/user-attachments/assets/6cec0046-6b00-44be-88e8-53c07541bfdb" />
 
 
+### IPFS Integration
+
+The infrastructure includes IPFS (InterPlanetary File System) for decentralized file storage. When files are attached to events, they are encrypted server-side and uploaded to IPFS. The resulting content identifier (CID) is stored on-chain via a smart contract, enabling secure and verifiable file retrieval. Download requests fetch the encrypted file from IPFS and decrypt it using the key managed by the smart contract.
+
+**IPFS is used for:**
+- Storing encrypted event-related files
+- Retrieving files by CID for authorized users
+- Ensuring files are decentralized and tamper-evident
+
+The API endpoints `/events/{event_hash}/attach`, `/events/{event_hash}/files`, and `/events/{event_hash}/files/{cid}/download` handle the integration with IPFS.
+
+
 ``` pgsql
 +--------------------------------------------------------------------------------+
 |                             🌐 Starfish Platform                              |
@@ -31,8 +43,8 @@ All persisted data lives on Hedera; reads are served via the Mirror Node.
 |  |  Cloud Run / GKE   |        |  Secret Manager           |                   |
 |  |  FastAPI Service   |        |  Environment vars & keys  |                   |
 |  |--------------------|        +---------------------------+                   |
-|  | Routes: /events, /trace, /health |                                         |
-|  | Performs encryption & writes to Hedera |                                   |
+|  | Routes: /events, /trace, /health, /compliance |                             |
+|  | Performs encryption & writes to Hedera/IPFS |                               |
 |  +----------------------------------------+                                   |
 |            |                                                                  |
 |            | (Envelope Encryption w/ AES-GCM)                                 |
@@ -40,6 +52,13 @@ All persisted data lives on Hedera; reads are served via the Mirror Node.
 |  +--------------------------------------+                                    |
 |  | 🔐 Cloud KMS (Symmetric Key)         |                                    |
 |  | Wrap/unwrap data encryption keys     |                                    |
+|  +--------------------------------------+                                    |
+|            |                                                                  |
+|            | (Encrypted file upload/download)                                 |
+|            v                                                                  |
+|  +--------------------------------------+                                    |
+|  | 🗄️ IPFS (Decentralized Storage)      |                                    |
+|  | Stores encrypted event files         |                                    |
 |  +--------------------------------------+                                    |
 |                                                                                |
 |            |                                                                  |
