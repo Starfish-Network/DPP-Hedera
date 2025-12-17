@@ -30,6 +30,7 @@ Hedera uses **fixed, USD-pegged fees** that are not subject to gas price volatil
 |---------|--------------------|-----------------|
 | HCS Message Submit | 74.146HBAR | ~$0.0001 |
 | Contract Deployment | 4.302HBAR | ~$0.5 – $1 |
+| Contract Call | 0.104HBAR | ~nothing |
 
 > Actual fees depend on payload size, contract complexity, and network configuration.
 
