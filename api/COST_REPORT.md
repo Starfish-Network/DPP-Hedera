@@ -28,7 +28,7 @@ Hedera uses **fixed, USD-pegged fees** that are not subject to gas price volatil
 
 | Operation | Current Cost (HBAR) | Current Cost (USD) |
 |---------|--------------------|-----------------|
-| HCS Message Submit | 74.146HBAR | ~$0.0001 |
+| HCS Message Submit | 0.074146HBAR | ~$0.0001 |
 | Contract Deployment | 4.302HBAR | ~$0.5 – $1 |
 | Contract Call | 0.104HBAR | ~nothing |
 
