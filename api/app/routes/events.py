@@ -1,4 +1,5 @@
-import sys
+from api.app.models.gdst.base import GDSTEvent
+from api.app.service.hedera import hedera_post_transaction
 from app.service.ipfs import download_from_ipfs, upload_to_ipfs
 from fastapi import APIRouter, HTTPException, File, UploadFile
 from fastapi.responses import StreamingResponse
@@ -7,7 +8,6 @@ from app.core.kms import get_kms
 from app.crypto.encryption import envelope_encrypt, file_envelope_decrypt, file_envelope_encrypt
 from app.core.config import settings
 from app.models.starfish_events import StarfishEvent
-from hiero_sdk_python import TopicCreateTransaction, TopicMessageSubmitTransaction, TopicId
 from hiero_sdk_python.contract.contract_id import ContractId
 from hiero_sdk_python.contract.contract_call_query import ContractCallQuery
 from hiero_sdk_python.contract.contract_execute_transaction import (
@@ -42,21 +42,46 @@ def create_event(
     }
 
     try:
-        client, op_key = get_client()
-        tx = (
-            TopicMessageSubmitTransaction(topic_id=TopicId.from_string(settings.TOPIC_ID), message=json.dumps(encrypted_payload, separators=(",", ":"), sort_keys=True))
-            .freeze_with(client)
-            .sign(op_key)
-        )
-        receipt = tx.execute(client)
-        tx_id = str(tx.transaction_id)
+        result = hedera_post_transaction(encrypted_payload)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Hedera write failed: {e}")
 
     return {
         "status": "ok",
-        "transactionId": tx_id,
-        "receiptStatus": str(receipt.status),
+        "transactionId": result["transactionId"],
+        "receiptStatus": result["receiptStatus"],
+        "eventType": event_dict["eventType"],
+        "source": source,
+    }
+
+@router.post("/gsdt", summary="Receive GDST event → encrypt → write to Hedera")
+def create_gdst_event(evt: GDSTEvent):
+    """Accepts any GDST event and writes it immutably to Hedera, following the same logic as EPCIS events."""
+    source = "starfish"
+    event_dict = evt.model_dump()
+    enc_meta, data_key = envelope_encrypt(event_dict)
+    kms = get_kms()
+    wrapped_dk = kms.wrap_data_key(data_key)
+
+    encrypted_payload = {
+        "eventType": event_dict["gdst_event_type"],
+        "ts": int(datetime.datetime.now(datetime.timezone.utc).timestamp()),
+        "source": source,
+        "enc": {
+            **enc_meta,
+            "encrypted_data_key_b64": base64.b64encode(wrapped_dk).decode(),
+        },
+    }
+
+    try:
+        result = hedera_post_transaction(encrypted_payload)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Hedera write failed: {e}")
+
+    return {
+        "status": "ok",
+        "transactionId": result["transactionId"],
+        "receiptStatus": result["receiptStatus"],
         "eventType": event_dict["eventType"],
         "source": source,
     }

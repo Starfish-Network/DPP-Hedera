@@ -1,6 +1,5 @@
 import requests
 from io import BytesIO
-from app.crypto.encryption import file_envelope_decrypt
 from app.core.config import settings
 
 def upload_to_ipfs(data: bytes, filename: str = "file.bin") -> str:
