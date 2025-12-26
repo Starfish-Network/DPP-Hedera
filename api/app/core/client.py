@@ -4,7 +4,7 @@ from app.core.config import settings
 def get_client() -> Client:
     op_id = AccountId.from_string(settings.OPERATOR_ID)
     key_str = settings.OPERATOR_KEY
-    if key_str.startswith("302e"):
+    if settings.KEY_TYPE == "ecdsa":
         op_key = PrivateKey.from_string_ecdsa(key_str)
     else:
         op_key = PrivateKey.from_string_der(key_str)
