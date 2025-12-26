@@ -1,5 +1,5 @@
 from typing import List, Optional
-from api.app.models.gdst.base import EventTiming, GDSTEvent, IUUInfo, LocationInfo, OwnershipInfo, ProductInfo
+from app.models.gdst.base import EventTiming, GDSTEvent, IUUInfo, LocationInfo, OwnershipInfo, ProductInfo
 
 
 class AggregationEvent(GDSTEvent):

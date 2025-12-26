@@ -1,29 +1,25 @@
 from typing import Optional, List, Annotated
 from datetime import datetime
 from pydantic import BaseModel, Field, confloat, validator
-from api.app.models.gdst.constraints import GTIN, UNECE_UOM, EventID, FAOASFISCode, FAOFishingArea, ISO3166Alpha2
+from app.models.gdst.constraints import GTIN, UNECE_UOM, EventID, FAOASFISCode, FAOFishingArea, ISO3166Alpha2
 
 class VesselInfo(BaseModel):
-    vessel_name: Optional[str]
-    vessel_registration: Optional[str]
-    vessel_id: Optional[str] = Field(
-        description="IMO number or national vessel ID"
-    )
-    public_registry_url: Optional[str]
-    vessel_flag: Optional[ISO3166Alpha2]
+    vessel_name: Optional[str] = None
+    vessel_registration: Optional[str] = None
+    vessel_id: Optional[str] = Field(default=None, description="IMO number or national vessel ID")
+    public_registry_url: Optional[str] = None
+    vessel_flag: Optional[ISO3166Alpha2] = None
 
 
 class OwnershipInfo(BaseModel):
-    product_owner: Optional[str]
-    information_provider: Optional[str]
+    product_owner: Optional[str] = None
+    information_provider: Optional[str] = None
 
 class ProductInfo(BaseModel):
     species: FAOASFISCode
-    product_form: Optional[str]
-    item_sku_upc_gtin: Optional[GTIN]
-    linking_kde: Optional[str] = Field(
-        description="Batch, lot, or serial number"
-    )
+    product_form: Optional[str] = None
+    item_sku_upc_gtin: Optional[GTIN] = None
+    linking_kde: Optional[str] = Field(default=None, description="Batch, lot, or serial number")
     quantity: Annotated[float, Field(gt=0)]
     unit_of_measure: UNECE_UOM
 
@@ -32,21 +28,21 @@ class GeoLocation(BaseModel):
     longitude: Annotated[float, Field(ge=-180, le=180)]
 
 class LocationInfo(BaseModel):
-    event_read_point: Optional[GeoLocation]
-    source_location: Optional[str]
-    destination_location: Optional[str]
-    catch_area: Optional[FAOFishingArea]
-    product_origin: Optional[str]
+    event_read_point: Optional[GeoLocation] = None
+    source_location: Optional[str] = None
+    destination_location: Optional[str] = None
+    catch_area: Optional[FAOFishingArea] = None
+    product_origin: Optional[str] = None
 
 class EventTiming(BaseModel):
     event_id: EventID
     event_datetime: datetime
-    timezone: Optional[str]
+    timezone: Optional[str] = None
 
-    capture_date: Optional[datetime]
-    landing_date: Optional[datetime]
-    production_date: Optional[datetime]
-    expiration_date: Optional[datetime]
+    capture_date: Optional[datetime] = None
+    landing_date: Optional[datetime] = None
+    production_date: Optional[datetime] = None
+    expiration_date: Optional[datetime] = None
 
     @validator("expiration_date")
     def expiration_after_production(cls, v, values):
@@ -56,18 +52,18 @@ class EventTiming(BaseModel):
         return v
 
 class IUUInfo(BaseModel):
-    chain_of_custody_certification: Optional[str]
+    chain_of_custody_certification: Optional[str] = None
 
-    fishing_authorization: Optional[str]
-    landing_authorization: Optional[str]
-    transshipment_authorization: Optional[str]
-    harvest_certification: Optional[str]
+    fishing_authorization: Optional[str] = None
+    landing_authorization: Optional[str] = None
+    transshipment_authorization: Optional[str] = None
+    harvest_certification: Optional[str] = None
 
-    production_method: Optional[str]
-    gear_type: Optional[str]
+    production_method: Optional[str] = None
+    gear_type: Optional[str] = None
 
-    human_welfare_policy_exists: Optional[bool]
-    human_welfare_policy_standards: Optional[str]
+    human_welfare_policy_exists: Optional[bool] = None
+    human_welfare_policy_standards: Optional[str] = None
 
     @validator("human_welfare_policy_standards")
     def standards_require_policy(cls, v, values):
@@ -84,7 +80,7 @@ class GDSTEvent(BaseModel):
     what: ProductInfo
     where: LocationInfo
     when: EventTiming
-    iuu: Optional[IUUInfo]
+    iuu: Optional[IUUInfo] = None
 
     @validator("gdst_event_type")
     def valid_gdst_event_type(cls, v):

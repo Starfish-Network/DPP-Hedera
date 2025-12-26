@@ -1,7 +1,6 @@
 import json
-from fastapi import HTTPException
 from hiero_sdk_python import TopicId, TopicMessageSubmitTransaction
-from api.app.core.client import get_client
+from app.core.client import get_client
 from app.core.config import settings
 
 def hedera_post_transaction(encrypted_payload: dict) -> dict:

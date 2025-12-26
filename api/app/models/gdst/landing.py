@@ -1,5 +1,5 @@
 from pydantic import validator
-from api.app.models.gdst.base import GDSTEvent
+from app.models.gdst.base import GDSTEvent
 
 class LandingEvent(GDSTEvent):
     gdst_event_type: str = "Landing"

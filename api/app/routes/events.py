@@ -1,5 +1,5 @@
-from api.app.models.gdst.base import GDSTEvent
-from api.app.service.hedera import hedera_post_transaction
+from app.models.gdst.base import GDSTEvent
+from app.service.hedera import hedera_post_transaction
 from app.service.ipfs import download_from_ipfs, upload_to_ipfs
 from fastapi import APIRouter, HTTPException, File, UploadFile
 from fastapi.responses import StreamingResponse
@@ -54,11 +54,11 @@ def create_event(
         "source": source,
     }
 
-@router.post("/gsdt", summary="Receive GDST event → encrypt → write to Hedera")
+@router.post("/gdst", summary="Receive GDST event → encrypt → write to Hedera")
 def create_gdst_event(evt: GDSTEvent):
     """Accepts any GDST event and writes it immutably to Hedera, following the same logic as EPCIS events."""
     source = "starfish"
-    event_dict = evt.model_dump()
+    event_dict = evt.model_dump(mode="json")
     enc_meta, data_key = envelope_encrypt(event_dict)
     kms = get_kms()
     wrapped_dk = kms.wrap_data_key(data_key)
@@ -77,12 +77,14 @@ def create_gdst_event(evt: GDSTEvent):
         result = hedera_post_transaction(encrypted_payload)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Hedera write failed: {e}")
+    
+    print(event_dict)
 
     return {
         "status": "ok",
         "transactionId": result["transactionId"],
         "receiptStatus": result["receiptStatus"],
-        "eventType": event_dict["eventType"],
+        "eventType": event_dict["gdst_event_type"],
         "source": source,
     }
 

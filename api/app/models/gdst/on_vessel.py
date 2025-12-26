@@ -1,5 +1,5 @@
 from typing import Optional
-from api.app.models.gdst.base import EventTiming, GDSTEvent, IUUInfo, LocationInfo, OwnershipInfo, ProductInfo, VesselInfo
+from app.models.gdst.base import EventTiming, GDSTEvent, IUUInfo, LocationInfo, OwnershipInfo, ProductInfo, VesselInfo
 
 
 class OnVesselProcessingEvent(GDSTEvent):

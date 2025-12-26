@@ -1,5 +1,5 @@
 from pydantic import validator
-from api.app.models.gdst.base import GDSTEvent, VesselInfo
+from app.models.gdst.base import GDSTEvent, VesselInfo
 
 
 class FishingEvent(GDSTEvent):
