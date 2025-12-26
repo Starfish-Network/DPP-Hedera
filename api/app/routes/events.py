@@ -1,3 +1,4 @@
+from app.helpers.compliance import sha256_bytes32
 from app.models.gdst.base import GDSTEvent
 from app.service.hedera import hedera_post_transaction
 from app.service.ipfs import download_from_ipfs, upload_to_ipfs
@@ -78,13 +79,14 @@ def create_gdst_event(evt: GDSTEvent):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Hedera write failed: {e}")
     
-    print(event_dict)
+    event_hash = sha256_bytes32(event_dict)
 
     return {
         "status": "ok",
         "transactionId": result["transactionId"],
         "receiptStatus": result["receiptStatus"],
         "eventType": event_dict["gdst_event_type"],
+        "eventHash": event_hash.hex(),
         "source": source,
     }
 
