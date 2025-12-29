@@ -1,6 +1,6 @@
-from typing import Optional, List, Annotated
+from typing import Optional, Annotated
 from datetime import datetime
-from pydantic import BaseModel, Field, confloat, validator
+from pydantic import BaseModel, Field, validator
 from app.models.gdst.constraints import GTIN, UNECE_UOM, EventID, FAOASFISCode, FAOFishingArea, ISO3166Alpha2
 
 class VesselInfo(BaseModel):

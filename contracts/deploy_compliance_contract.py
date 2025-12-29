@@ -24,7 +24,7 @@ load_dotenv()
 # Compile -----------------------------------------------------------
 install_solc("0.8.20")
 
-with open("compliance.sol", "r") as f:
+with open(os.getenv("CONTRACT_FILE"), "r") as f:
     source_code = f.read()
 
 compiled = compile_source(
@@ -53,7 +53,10 @@ def setup_client():
     client = Client(network)
 
     operator_id = AccountId.from_string(os.getenv("OPERATOR_ID"))
-    operator_key = PrivateKey.from_string_ecdsa(os.getenv("OPERATOR_KEY"))
+    if os.getenv("KEY_TYPE") == "ecdsa":
+        operator_key = PrivateKey.from_string_ecdsa(os.getenv("OPERATOR_KEY"))
+    else:
+        operator_key = PrivateKey.from_string_der(os.getenv("OPERATOR_KEY"))
     client.set_operator(operator_id, operator_key)
 
     return client

@@ -5,7 +5,9 @@ class Settings(BaseSettings):
     ENV: str = "dev"
     OPERATOR_ID: str
     OPERATOR_KEY: str
+    KEY_TYPE: str = "der"
     COMPLIANCE_CONTRACT_ID: str | None = None
+    GDST_CONTRACT_ID: str | None = None
     TOPIC_ID: str
     NETWORK: str = "testnet"
     MIRROR_BASE: str = "https://testnet.mirrornode.hedera.com/api/v1"

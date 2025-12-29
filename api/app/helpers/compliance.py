@@ -70,7 +70,6 @@ def gdst_min_rules(evt: Dict[str, Any]) -> bool:
     if not _present(what.get("unit_of_measure")):
         return False
 
-
     # ---------- Event-specific KDE checks ----------
 
     # Fishing

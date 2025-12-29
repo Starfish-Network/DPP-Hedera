@@ -1,28 +1,24 @@
 from fastapi import APIRouter, HTTPException
-from typing import Literal
+from typing import Literal, Union
+from app.models.gdst.aggregation import AggregationEvent
+from app.models.gdst.processing import ProcessingEvent
+from app.models.gdst.transshipment import TransshipmentEvent
+from app.models.starfish_events import ShippingEvent
+from app.models.gdst.fishing import FishingEvent
+from app.models.gdst.landing import LandingEvent
+from app.models.gdst.on_vessel import OnVesselProcessingEvent
+from app.service.hedera import hedera_contract_check_event
 from app.core.client import get_client
 from app.core.config import settings
 from app.models.contract import ComplianceEvent
-from app.helpers.compliance import fsma_min_rules, sha256_bytes32
-
+from app.helpers.compliance import fsma_min_rules, gdst_min_rules, sha256_bytes32
 from hiero_sdk_python import (
-    ContractFunctionParameters,
-    ResponseCode
+    ContractFunctionParameters
 )
-
-from hiero_sdk_python.contract.contract_execute_transaction import (
-    ContractExecuteTransaction
-)
-
 from hiero_sdk_python.contract.contract_id import ContractId
-
 from hiero_sdk_python.contract.contract_call_query import ContractCallQuery
 
 router = APIRouter(prefix="/compliance", tags=["Compliance"])
-
-EventType = Literal[
-    "creating", "shipping", "receiving", "transforming", "packing", "unpacking"
-]
 
 @router.post("/check", summary="Validate event and record compliance on-chain")
 def check_and_record(event: ComplianceEvent):
@@ -37,29 +33,40 @@ def check_and_record(event: ComplianceEvent):
     # Hash as bytes32 for Solidity
     event_hash = sha256_bytes32(evt_dict)
 
+    client, _op_key = get_client()
+    contract_id = ContractId.from_string(settings.COMPLIANCE_CONTRACT_ID)
+
     try:
-        client, _op_key = get_client()
-        contract_id = ContractId.from_string(settings.COMPLIANCE_CONTRACT_ID)
+        tx =hedera_contract_check_event(event_hash, is_compliant, evt_dict["eventType"], client, contract_id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Contract call failed: {e}")
 
-        params = (
-            ContractFunctionParameters()
-            .add_bytes32(event_hash)   
-            .add_string(evt_dict["eventType"])    
-            .add_bool(is_compliant)            
-        )
+    return {
+        "status": "ok",
+        "isCompliant": is_compliant,
+        "txStatus": str(getattr(tx, "status", "UNKNOWN")),
+        "contractId": str(contract_id),
+        "eventHashHex": "0x" + event_hash.hex(),
+    }
 
-        # State-changing call uses ContractExecuteTransaction
-        tx = (
-            ContractExecuteTransaction()
-            .set_contract_id(contract_id)
-            .set_gas(200_000)
-            .set_function("recordEvent", params)
-            .execute(client)
-        )
-    
-        if tx.status != ResponseCode.SUCCESS:
-            raise HTTPException(status_code=500, detail=f"Contract execution failed with status: {ResponseCode(tx.status).name}")
+@router.post("/gdst/check", summary="Validate event and record compliance on-chain")
+def check_and_record(event: Union[AggregationEvent, FishingEvent, LandingEvent, OnVesselProcessingEvent, TransshipmentEvent, ProcessingEvent, ShippingEvent]):
+    """
+    - Runs lightweight compliance checks (server-side)
+    - Hashes the event deterministically
+    - Calls ComplianceVerifier.recordEvent(bytes32,string,bool)
+    """
+    evt_dict = event.model_dump(mode="json")
+    is_compliant = gdst_min_rules(evt_dict)
 
+    # Hash as bytes32 for Solidity
+    event_hash = sha256_bytes32(evt_dict)
+
+    client, _op_key = get_client()
+    contract_id = ContractId.from_string(settings.GDST_CONTRACT_ID)
+
+    try:
+        tx = hedera_contract_check_event(event_hash, is_compliant, evt_dict["gdst_event_type"], client, contract_id)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Contract call failed: {e}")
 
