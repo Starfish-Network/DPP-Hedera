@@ -13,7 +13,6 @@ from app.helpers.trace import build_edge_list, normalize_epc, traverse
 
 router = APIRouter(prefix="/trace", tags=["Traceability"])
 
-
 @router.get("/{product_id}", summary="Retrieve full upstream/downstream trace graph for a product")
 def get_trace_graph(product_id: str):
     """
