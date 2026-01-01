@@ -1,6 +1,4 @@
-from app.helpers.compliance import sha256_bytes32
-from app.models.gdst.base import GDSTEvent
-from app.service.hedera import hedera_post_transaction
+from app.service.hedera import hedera_contract_attach_file, hedera_contract_get_data_key, hedera_contract_get_files, hedera_post_transaction
 from app.service.ipfs import download_from_ipfs, upload_to_ipfs
 from fastapi import APIRouter, HTTPException, File, UploadFile
 from fastapi.responses import StreamingResponse
@@ -11,9 +9,6 @@ from app.core.config import settings
 from app.models.starfish_events import StarfishEvent
 from hiero_sdk_python.contract.contract_id import ContractId
 from hiero_sdk_python.contract.contract_call_query import ContractCallQuery
-from hiero_sdk_python.contract.contract_execute_transaction import (
-    ContractExecuteTransaction
-)
 from hiero_sdk_python import (
     ContractFunctionParameters
 )
@@ -80,31 +75,14 @@ async def attach_file_to_event(
         cid = upload_to_ipfs(envelope_json, filename=file.filename)
 
         # Store CID on smart contract
-        client, op_key = get_client()
         contract_id = ContractId.from_string(settings.COMPLIANCE_CONTRACT_ID)
-        params = (
-            ContractFunctionParameters()
-            .add_bytes32(bytes.fromhex(event_hash_hex))
-            .add_string(cid)
-            .add_bytes32(data_key)
-        )
-        tx = (
-            ContractExecuteTransaction()
-            .set_contract_id(contract_id)
-            .set_gas(200000)
-            .set_function("attachFile", params)
-            .freeze_with(client)
-            .sign(op_key)
-        )
-        receipt = tx.execute(client)
-        tx_id = str(tx.transaction_id)
+        tx_id = hedera_contract_attach_file(event_hash_hex, cid, data_key, contract_id)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Hedera write failed: {e}")
 
     return {
         "status": "ok",
         "transactionId": tx_id,
-        "receiptStatus": str(receipt.status),
         "eventHash": event_hash_hex,
         "fileCid": cid,
     }
@@ -115,22 +93,8 @@ def get_files_for_event(event_hash_hex: str):
     Fetches the list of file CIDs attached to an event from the smart contract.
     """
     try:
-        client, _op_key = get_client()
         contract_id = ContractId.from_string(settings.COMPLIANCE_CONTRACT_ID)
-        params = (
-            ContractFunctionParameters()
-            .add_bytes32(bytes.fromhex(event_hash_hex.removeprefix("0x")))
-        )
-        tx = (
-            ContractCallQuery()
-            .set_contract_id(contract_id)
-            .set_gas(200000)
-            .set_function("getFiles", params)
-            .execute(client)
-        )
-
-        file_cids = tx.get_result(["string[]"])[0]
-
+        file_cids = hedera_contract_get_files(event_hash_hex, contract_id)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Contract call failed: {e}")
 
@@ -146,20 +110,8 @@ def download_decrypted_file(event_hash_hex: str, cid: str):
     envelope = json.loads(envelope_json)
 
     # 2. Retrieve wrapped data key from smart contract using CID
-    client, _op_key = get_client()
     contract_id = ContractId.from_string(settings.COMPLIANCE_CONTRACT_ID)
-    params = (
-        ContractFunctionParameters()
-        .add_string(cid)
-    )
-    tx = (
-        ContractCallQuery()
-        .set_contract_id(contract_id)
-        .set_gas(200000)
-        .set_function("getDataKey", params)
-        .execute(client)
-    )
-    data_key = tx.get_result(["bytes32"])[0]
+    data_key = hedera_contract_get_data_key(cid, contract_id)
 
     # 3. Decrypt the file
     decrypted_bytes = file_envelope_decrypt(
