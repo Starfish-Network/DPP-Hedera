@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from api.app.routes.epcis import compliance
-from app.routes.epcis import epcis, trace
+from api.app.routes import trace
+from app.routes.epcis import epcis
 from app.routes.gdst import gdst
 from api.app.routes.epcis import events
 from app.core.auth import create_access_token
@@ -12,6 +13,7 @@ app = FastAPI(title="Starfish Hedera Traceability API", version="1.0.0", root_pa
 
 app.include_router(gdst.router)
 app.include_router(epcis.router)
+app.include_router(trace.router)
 
 @app.post("/login")
 def login(username: str, role: str = "reader"):
