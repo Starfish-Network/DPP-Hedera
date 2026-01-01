@@ -2,16 +2,12 @@ from app.service.hedera import hedera_contract_attach_file, hedera_contract_get_
 from app.service.ipfs import download_from_ipfs, upload_to_ipfs
 from fastapi import APIRouter, HTTPException, File, UploadFile
 from fastapi.responses import StreamingResponse
-from app.core.client import get_client
 from app.core.kms import get_kms
 from app.crypto.encryption import envelope_encrypt, file_envelope_decrypt, file_envelope_encrypt
 from app.core.config import settings
 from app.models.starfish_events import StarfishEvent
 from hiero_sdk_python.contract.contract_id import ContractId
 from hiero_sdk_python.contract.contract_call_query import ContractCallQuery
-from hiero_sdk_python import (
-    ContractFunctionParameters
-)
 import base64, json, datetime
 
 router = APIRouter(prefix="/events", tags=["Events"])
