@@ -25,7 +25,7 @@ def create_gdst_event(evt: GDSTEvent):
     wrapped_dk = kms.wrap_data_key(data_key)
 
     encrypted_payload = {
-        "eventType": event_dict["gdst_event_type"],
+        "gdst_event_type": event_dict["gdst_event_type"],
         "ts": int(datetime.datetime.now(datetime.timezone.utc).timestamp()),
         "source": source,
         "enc": {

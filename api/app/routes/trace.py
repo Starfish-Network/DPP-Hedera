@@ -21,15 +21,27 @@ def get_trace_graph(product_id: str):
     Output format mirrors Starfish trace structure.
     """
     topic_id = settings.TOPIC_ID
-    url = f"{settings.MIRROR_BASE}/topics/{topic_id}/messages?limit=1000&order=asc"
-
-    try:
-        resp = requests.get(url, timeout=30)
-        resp.raise_for_status()
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Mirror node fetch failed: {e}")
-
-    messages = resp.json().get("messages", [])
+    url = f"{settings.MIRROR_BASE}/topics/{topic_id}/messages?limit=100&order=desc"
+    messages = []
+    next_url = url
+    while next_url:
+        try:
+            resp = requests.get(next_url, timeout=30)
+            resp.raise_for_status()
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Mirror node fetch failed: {e}")
+        data = resp.json()
+        batch = data.get("messages", [])
+        messages.extend(batch)
+        next_link = data.get("links", {}).get("next")
+        if next_link:
+            # If next_link is a relative path, prepend the base
+            if next_link.startswith("/"):
+                next_url = f"{settings.MIRROR_BASE}{next_link.replace('/api/v1', '')}"
+            else:
+                next_url = next_link
+        else:
+            next_url = None
     if not messages:
         raise HTTPException(status_code=404, detail="No messages found on this topic")
 

@@ -1,18 +1,18 @@
 import { useCallback, useEffect, useState } from "react";
 
-export function useEventFiles(event_hash: string) {
+export function useEventFiles(event_hash: string, epcis: boolean = true) {
     const [files, setFiles] = useState<string[]>([]);
 
     const fetchFiles = useCallback(async () => {
         try {
-            const res = await fetch(`/api/v1/events/${event_hash}/files`);
+            const res = await fetch(`/api/v1/${epcis ? "epcis" : "gdst"}/events/${event_hash}/files`);
             if (!res.ok) return [];
             const data = await res.json();
             return data.fileCids || [];
         } catch {
             return [];
         }
-    }, [event_hash]);
+    }, [epcis, event_hash]);
 
     // Fetch files on mount and when event_hash changes
     useEffect(() => {

@@ -6,7 +6,6 @@ from app.core.config import settings
 from hiero_sdk_python.contract.contract_execute_transaction import (
     ContractExecuteTransaction
 )
-from hiero_sdk_python.contract.contract_id import ContractId
 from hiero_sdk_python import (
     ContractFunctionParameters,
     ResponseCode
@@ -17,16 +16,18 @@ client, op_key = get_client()
 def hedera_post_transaction(encrypted_payload: dict) -> dict:
     """Posts an encrypted payload to Hedera and returns transaction details."""
     tx = (
-        TopicMessageSubmitTransaction(topic_id=TopicId.from_string(settings.TOPIC_ID), message=json.dumps(encrypted_payload, separators=(",", ":"), sort_keys=True))
+        TopicMessageSubmitTransaction()
+        .set_topic_id(TopicId.from_string(settings.TOPIC_ID))
+        .set_message(json.dumps(encrypted_payload, separators=(",", ":"), sort_keys=True))
         .freeze_with(client)
         .sign(op_key)
     )
     receipt = tx.execute(client)
-    tx_id = str(tx.transaction_id)
+    tx_id = str(receipt.transaction_id)
     
     return {
         "transactionId": tx_id,
-        "receiptStatus": str(receipt.status),
+        "receiptStatus": ResponseCode(receipt.status).name,
     }
 
 def hedera_contract_check_event(event_hash: bytes, is_compliant: bool, event_type: str, contract_id) -> ContractExecuteTransaction:
