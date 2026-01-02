@@ -50,10 +50,51 @@ def get_trace_graph(product_id: str):
     # Graph structure
     graph = defaultdict(lambda: {"inputs": set(), "outputs": set(), "events": []})
 
-    # Decrypt and parse all events (Compliance and GDST)
+    # Reassemble chunked messages
+    chunked_messages = {}
+    single_messages = []
     for msg in messages:
+        chunk_info = msg.get("chunk_info")
+        if chunk_info:
+            initial_tx_id_dict = chunk_info.get("initial_transaction_id")
+            if not initial_tx_id_dict:
+                continue
+            initial_tx_id = json.dumps(initial_tx_id_dict, sort_keys=True)
+            if initial_tx_id not in chunked_messages:
+                chunked_messages[initial_tx_id] = {
+                    "total": chunk_info.get("total"),
+                    "chunks": {}
+                }
+            chunked_messages[initial_tx_id]["chunks"][chunk_info["number"]] = msg
+        else:
+            single_messages.append(msg)
+
+    # Combine chunked messages
+    all_msgs = []
+    for initial_tx_id, chunk_data in chunked_messages.items():
+        total = chunk_data["total"]
+        chunks = chunk_data["chunks"]
+        if not total or len(chunks) != total:
+            print(f"Incomplete chunked message for tx {initial_tx_id}")
+            continue
+        # Sort by chunk number and concatenate
+        ordered = [chunks[i] for i in sorted(chunks)]
+        combined_b64 = b"".join([base64.b64decode(m["message"]) for m in ordered])
+        # Now treat as a single message
+        all_msgs.append({"message": base64.b64encode(combined_b64).decode(), "consensus_timestamp": ordered[0]["consensus_timestamp"]})
+    # Add single (non-chunked) messages
+    for msg in single_messages:
+        all_msgs.append(msg)
+
+    # Decrypt and parse all events (Compliance and GDST)
+    for msg in all_msgs:
         try:
-            enc_payload = json.loads(base64.b64decode(msg["message"]).decode())
+            try:
+                enc_payload = json.loads(base64.b64decode(msg["message"]).decode())
+            except Exception as e:
+                print(f"Error decoding message: {e}")
+                print("Raw message:", msg["message"])
+                continue
             enc_block = enc_payload.get("enc", {})
             if not enc_block:
                 continue
@@ -74,7 +115,7 @@ def get_trace_graph(product_id: str):
                         evt_model = GDSTEvent.parse_obj(evt)
                         event_hash = sha256_bytes32(evt_model.model_dump(mode="json"))
                         evt["event_hash"] = event_hash.hex()
-                        evt["consensus_timestamp"] = msg["consensus_timestamp"]
+                        evt["consensus_timestamp"] = msg.get("consensus_timestamp")
 
                         # For GDST AggregationDisaggregation, build parent-child relationships like transforming
                         if evt.get("gdst_event_type") == "AggregationDisaggregation":
@@ -98,7 +139,7 @@ def get_trace_graph(product_id: str):
                         evt_model = ComplianceEvent.parse_obj(evt)
                         event_hash = sha256_bytes32(evt_model.model_dump())
                         evt["event_hash"] = event_hash.hex()
-                        evt["consensus_timestamp"] = msg["consensus_timestamp"]
+                        evt["consensus_timestamp"] = msg.get("consensus_timestamp")
 
                         # Build relationships for transforming events
                         if evt.get("eventType") == "transforming":
