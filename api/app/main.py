@@ -1,9 +1,7 @@
 from fastapi import FastAPI
-from api.app.routes.epcis import compliance
-from api.app.routes import trace
+from app.routes import trace
 from app.routes.epcis import epcis
 from app.routes.gdst import gdst
-from api.app.routes.epcis import events
 from app.core.auth import create_access_token
 from datetime import timedelta
 
