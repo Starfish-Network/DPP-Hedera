@@ -26,7 +26,7 @@ export function NodeModal({ eventList, onClose, totalEvents, setShowAll, isLoadi
     };
 
     // Handler for file selection and upload
-    const handleFileChange = async (evt: React.ChangeEvent<HTMLInputElement>, event_hash: string) => {
+    const handleFileChange = async (evt: React.ChangeEvent<HTMLInputElement>, event_hash: string, isGDST: boolean) => {
         const file = evt.target.files?.[0];
         if (!file) return;
         setUploading(true);
@@ -34,7 +34,7 @@ export function NodeModal({ eventList, onClose, totalEvents, setShowAll, isLoadi
         try {
             const formData = new FormData();
             formData.append("file", file);
-            const res = await fetch(`/api/v1/events/${event_hash}/attach`, {
+            const res = await fetch(`/api/v1/${isGDST ? "gdst" : "epcis"}/events/${event_hash}/attach`, {
                 method: "POST",
                 body: formData,
             });
@@ -169,7 +169,7 @@ export function NodeModal({ eventList, onClose, totalEvents, setShowAll, isLoadi
                                     type="file"
                                     ref={fileInputRef}
                                     style={{ display: "none" }}
-                                    onChange={e => handleFileChange(e, evt.event_hash)}
+                                    onChange={e => handleFileChange(e, evt.event_hash, "gdst_event_type" in evt)}
                                 />
                                 {uploadResult && <div className="mt-2 text-xs">{uploadResult}</div>}
                                 <EventFiles
