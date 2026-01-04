@@ -99,3 +99,26 @@ def hedera_contract_get_data_key(cid: str, contract_id) -> bytes:
         .execute(client)
     )
     return tx.get_result(["bytes32"])[0]
+
+def hedera_contract_get_compliance_status(event_hash_hex: str, contract_id) -> bool:
+    params = (
+        ContractFunctionParameters()
+        .add_bytes32(bytes.fromhex(event_hash_hex.removeprefix("0x")))
+    )
+
+    tx = (
+        ContractCallQuery()
+        .set_contract_id(contract_id)
+        .set_gas(2000000)
+        .set_function("getComplianceStatus", params)
+        .execute(client)
+    )
+
+    event_type = tx.get_string(0)
+
+    if event_type == "":
+        is_compliant = None  # Event hash not found
+    else:
+        is_compliant = tx.get_bool(1)
+
+    return is_compliant

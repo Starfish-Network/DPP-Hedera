@@ -11,6 +11,7 @@ import "reactflow/dist/style.css";
 import { GraphLegend } from "./components/GraphLegend";
 import { NodeModal } from "./components/NodeModal";
 import type { EdgeNode } from "./types/EdgeNode";
+import type { GDSTEvent } from "./types/GDSTEvent";
 import type { StarfishEvent } from "./types/StarfishEvents";
 import type { TraceResponse } from "./types/TraceResponse";
 import { extractEventsFromTrace } from "./utils/extractEventsFromTrace";
@@ -39,8 +40,8 @@ export default function App() {
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
 
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
-  const [eventsForNode, setEventsForNode] = useState<(StarfishEvent & { consensus_timestamp: string; isCompliant: boolean | null; event_hash: string })[]>([]);
-  const [allEvents, setAllEvents] = useState<(StarfishEvent & { consensus_timestamp: string; isCompliant: boolean | null; event_hash: string })[]>([]);
+  const [eventsForNode, setEventsForNode] = useState<((StarfishEvent | GDSTEvent) & { consensus_timestamp: string; isCompliant: boolean | null; event_hash: string })[]>([]);
+  const [allEvents, setAllEvents] = useState<((StarfishEvent | GDSTEvent) & { consensus_timestamp: string; isCompliant: boolean | null; event_hash: string })[]>([]);
   const [isLoadingEvents, setIsLoadingEvents] = useState(false);
 
   const onNodeClick = useCallback(async (_: unknown, node: Node) => {
@@ -53,11 +54,12 @@ export default function App() {
     setIsLoadingEvents(false);
   }, [trace]);
 
-  const fetchComplianceForEvents = async (events: (StarfishEvent & { consensus_timestamp: string; isCompliant: boolean | null; event_hash: string })[]) => {
+  const fetchComplianceForEvents = async (events: ((StarfishEvent | GDSTEvent) & { consensus_timestamp: string; isCompliant: boolean | null; event_hash: string })[]) => {
     const updatedEvents = await Promise.all(
       events.map(async (evt) => {
+        const isGDST = "gdst_event_type" in evt;
         try {
-          const res = await fetch(`/api/v1/compliance/status/${evt.event_hash}`, {
+          const res = await fetch(`/api/v1/${isGDST ? "gdst" : "epcis"}/compliance/status/${evt.event_hash}`, {
             method: "GET",
             headers: { "Content-Type": "application/json" },
           });

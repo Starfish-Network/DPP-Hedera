@@ -68,8 +68,9 @@ export function NodeModal({ eventList, onClose, totalEvents, setShowAll, isLoadi
 
     async function runComplianceCheck(evt: ((StarfishEvent | GDSTEvent) & { consensus_timestamp: string; isCompliant: boolean | null; event_hash: string })) {
         setLoading(true);
+        const isGDST = "gdst_event_type" in evt;
         try {
-            const res = await fetch(`/api/v1/compliance/check`, {
+            const res = await fetch(`/api/v1/${isGDST ? "gdst" : "epcis"}/compliance/check`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(evt),
