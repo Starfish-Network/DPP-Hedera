@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import type { ComplianceCheckResponse } from "../types/ComplianceCheckResponse";
+import type { GDSTEvent } from "../types/GDSTEvent";
 import type { StarfishEvent } from "../types/StarfishEvents";
 import { EventFiles } from "./EventFiles";
 
 type NodeModalProps = {
-    readonly eventList: (StarfishEvent & { consensus_timestamp: string; isCompliant: boolean | null; event_hash: string })[];
+    readonly eventList: ((StarfishEvent | GDSTEvent) & { consensus_timestamp: string; isCompliant: boolean | null; event_hash: string })[];
     readonly onClose: () => void;
     readonly totalEvents: number;
     readonly setShowAll: (showAll: boolean) => void;
@@ -65,7 +66,7 @@ export function NodeModal({ eventList, onClose, totalEvents, setShowAll, isLoadi
         setCompliance(initialCompliance);
     }, [eventList]);
 
-    async function runComplianceCheck(evt: (StarfishEvent & { consensus_timestamp: string; isCompliant: boolean | null; event_hash: string })) {
+    async function runComplianceCheck(evt: ((StarfishEvent | GDSTEvent) & { consensus_timestamp: string; isCompliant: boolean | null; event_hash: string })) {
         setLoading(true);
         try {
             const res = await fetch(`/api/v1/compliance/check`, {
@@ -117,7 +118,6 @@ export function NodeModal({ eventList, onClose, totalEvents, setShowAll, isLoadi
                     eventList.map((evt) => {
                         const json = JSON.stringify(evt, null, 2);
                         const c = compliance[evt.consensus_timestamp];
-                        console.log("compliance status", compliance);
 
                         return (
                             <div key={evt.consensus_timestamp} className="border rounded p-4 mb-4 bg-gray-50">
@@ -171,7 +171,11 @@ export function NodeModal({ eventList, onClose, totalEvents, setShowAll, isLoadi
                                     onChange={e => handleFileChange(e, evt.event_hash)}
                                 />
                                 {uploadResult && <div className="mt-2 text-xs">{uploadResult}</div>}
-                                <EventFiles evt={evt} refetchTrigger={refreshKeys[evt.event_hash]} />
+                                <EventFiles
+                                    evt={evt}
+                                    refetchTrigger={refreshKeys[evt.event_hash]}
+                                    gdstEvent={"gdst_event_type" in evt}
+                                />
                             </div>
                         );
                     })
