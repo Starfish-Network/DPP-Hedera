@@ -82,7 +82,14 @@ def hedera_contract_attach_file(event_hash_hex: str, cid: str, data_key: bytes, 
         .set_function("attachFile", params)
         .freeze_with(client)
         .sign(op_key)
+        .execute(client)
     )
+
+    if tx.status != ResponseCode.SUCCESS:
+        print(
+            f"Contract execution failed with status: {ResponseCode(tx.status).name}"
+        )
+        raise HTTPException(status_code=500, detail=f"Contract execution failed with status: {ResponseCode(tx.status).name}")
 
     return str(tx.transaction_id)
 
