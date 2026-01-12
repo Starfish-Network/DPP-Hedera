@@ -20,7 +20,7 @@ The goal of this project is to enhance supply chain transparency by immutably st
 ``` text
  ┌──────────────────────┐
  │  Starfish Platform   │
- │ (EPCIS Events)       │
+ │ (EPCIS & GDST Events)│
  └──────────┬───────────┘
             │ POST /api/events
             ▼
@@ -71,10 +71,17 @@ Tests | pytest | Unit + integration verification
 6. UI displays a graph and timeline of the product’s full supply chain journey
 
 ## 🧩 API Endpoints
+
 Endpoint | Method | Description
 --- | --- | ---
 /api/events | POST | Receives EPCIS-like trace events (creating, shipping, receiving, etc.) and writes them to Hedera
 /api/trace/{productId} | GET | Retrieves a product’s full lineage (upstream/downstream graph) from Hedera’s Mirror Node
+/api/gdst/events | POST | Receives GDST events, encrypts, and writes to Hedera
+/api/gdst/compliance/check | POST | Validates a GDST event and records compliance on-chain
+/api/gdst/compliance/status/{event_hash} | GET | Fetches compliance status for a GDST event hash
+/api/gdst/events/{event_hash}/files | GET | Returns all IPFS CIDs attached to a GDST event
+/api/gdst/events/{event_hash}/attach | POST | Attaches a file to a GDST event (stores CID on-chain)
+/api/gdst/events/{event_hash}/files/{cid}/download | GET | Downloads and decrypts a file for a GDST event
 
 ## 🔧 Backend Setup
 **Prerequisites**
@@ -191,6 +198,36 @@ C (Packed & Shipped)
  ├── deploy_compliance_contract.py # deployment script
  ├── .env              # contract env vars
 ```
+
+## 📝 GDST Smart Contract: ComplianceVerifier
+
+The `ComplianceVerifier` smart contract is deployed on Hedera and underpins GDST event compliance and file attachment. It provides:
+
+- **Immutable compliance records** for each event (by hash)
+- **On-chain file attachment** (IPFS CIDs + encrypted keys)
+- **Compliance status queries** for any event
+
+**Key Functions:**
+
+- `recordEvent(bytes32 eventHash, string eventType, bool isCompliant)`: Records compliance for a GDST event (called by API on /gdst/compliance/check)
+- `getComplianceStatus(bytes32 eventHash)`: Returns compliance status, event type, timestamp, and verifier address
+- `attachFile(bytes32 eventHash, string cid, bytes32 dataKey)`: Attaches an IPFS file (CID + encrypted key) to an event
+- `getFiles(bytes32 eventHash)`: Returns all CIDs attached to an event
+- `getDataKey(string cid)`: Returns the encrypted data key for a file CID
+
+**Deployment & Usage:**
+
+- The contract is deployed to the Hedera testnet (see `CONTRACT_ID` in .env)
+- All compliance and file operations for GDST events are routed through this contract
+- See `/contracts/gdst.sol` for full Solidity source
+
+**Example:**
+
+1. API hashes a GDST event and calls `recordEvent` to store compliance
+2. Files are encrypted, uploaded to IPFS, and `attachFile` is called to link the CID and key
+3. Downstream, `getComplianceStatus` and `getFiles`/`getDataKey` are used to verify and retrieve event data
+
+This ensures all compliance and file proofs are cryptographically verifiable and auditable on-chain.
 
 ## 🧠 Key Design Principles
 

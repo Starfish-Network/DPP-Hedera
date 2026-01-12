@@ -238,6 +238,124 @@ Returns all IPFS CIDs attached to an event.
 
 Downloads and decrypts the file for the event.
 
+---
+
+## 🌊 GDST Endpoints
+
+`POST /api/gdst/events`
+
+Receives GDST events, encrypts them, and writes to Hedera.
+
+**Example Request**
+
+```json
+{
+  "gdst_event_type": "Landing",
+  "event_time": "2025-10-03T12:08:00.000Z",
+  "facility": "Port of Vigo",
+  "input_items": [
+    {"epc": "urn:epc:id:sgtin:9506000.1233.400"}
+  ]
+}
+```
+
+**Example Response**
+
+```json
+{
+  "status": "ok",
+  "transactionId": "0.0.12345@1698831600.123456789",
+  "receiptStatus": "SUCCESS",
+  "eventType": "Landing",
+  "eventHash": "a1b2c3d4e5f6...",
+  "source": "starfish"
+}
+```
+
+`POST /api/gdst/compliance/check`
+
+Validates a GDST event and records compliance on-chain.
+
+**Example Request**
+
+```json
+{
+  "gdst_event_type": "Landing",
+  "event_time": "2025-10-03T12:08:00.000Z",
+  "facility": "Port of Vigo",
+  "input_items": [
+    {"epc": "urn:epc:id:sgtin:9506000.1233.400"}
+  ]
+}
+```
+
+**Example Response**
+
+```json
+{
+  "status": "ok",
+  "isCompliant": true,
+  "txStatus": "SUCCESS",
+  "contractId": "0.0.54321",
+  "eventHashHex": "0xa1b2c3d4e5f6..."
+}
+```
+
+`GET /api/gdst/compliance/status/{event_hash}`
+
+Fetches compliance status for a GDST event hash.
+
+**Example Response**
+
+```json
+{
+  "status": "ok",
+  "isCompliant": true,
+  "contractId": "0.0.54321",
+  "eventHashHex": "0xa1b2c3d4e5f6..."
+}
+```
+
+`GET /api/gdst/events/{event_hash}/files`
+
+Returns all IPFS CIDs attached to a GDST event.
+
+**Example Response**
+
+```json
+{
+  "eventHash": "a1b2c3d4e5f6...",
+  "fileCids": ["Qm123...", "Qm456..."]
+}
+```
+
+`POST /api/gdst/events/{event_hash}/attach`
+
+Attaches a file to a GDST event (stores CID on-chain).
+
+**Example Request**
+
+Form-data: file (binary)
+
+**Example Response**
+
+```json
+{
+  "status": "ok",
+  "transactionId": "0.0.12345@1698831600.123456789",
+  "eventHash": "a1b2c3d4e5f6...",
+  "fileCid": "Qm123..."
+}
+```
+
+`GET /api/gdst/events/{event_hash}/files/{cid}/download`
+
+Downloads and decrypts a file for a GDST event.
+
+**Example Response**
+
+Binary file stream (decrypted contents)
+
 ## 🔧 Configuration (.env.dev example)
 ``` env
 OPERATOR_ID=0.0.12345
