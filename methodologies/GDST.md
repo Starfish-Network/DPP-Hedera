@@ -1,7 +1,13 @@
 # Methodology for GDST 1.2 Seafood Traceability
 
 **Key Data Elements, Critical Tracking Events & Schema Definitions**
-*Starfish Platform | Hedera Integration Service*
+*Starfish Platform*
+
+This system implements the Global Dialogue on Seafood Traceability (GDST)
+Core Normative Standard v1.2 for interoperable seafood traceability systems.
+
+Reference:
+https://thegdst.org/resources/standard/
 
 ---
 
