@@ -111,12 +111,34 @@ async def get_vc_by_event_hash(
     self,
     policy_id: str,
     event_hash: str,
-) -> VCDocument | None
+    *,
+    history: bool = False,
+) -> VCDocument | list[VCDocument] | None
 ```
 
 - **MGS**: `GET /policies/{id}/documents?type=VC` with client-side filter on `credentialSubject.eventHash`. (MGS does not index `eventHash`; we filter in memory.)
-- **Returns**: the matching VC or `None`. Pagination handled internally (hard cap: 1000 records; raise `GuardianUnavailable` if the cap is hit — indicates reconciliation is behind).
-- **Used by**: `/guardian/gdst/vc/{event_hash}` and `/guardian/fsma/vc/{event_hash}`.
+- **`history=False` (default)**: returns the **latest** VC for `event_hash` (i.e. the one whose `credentialSubject.complianceStatus != "superseded"`, or the most recently issued if no superseding exists). Returns `None` if nothing found.
+- **`history=True`**: returns the full ordered superseding chain `[oldest, …, latest]` so callers can audit corrections (spec §FR-007, §FR-014). Returns `[]` if nothing found.
+- Pagination handled internally (hard cap: 1000 records; raise `GuardianUnavailable` if the cap is hit — indicates reconciliation is behind).
+- **Used by**: `/guardian/gdst/vc/{event_hash}` and `/guardian/fsma/vc/{event_hash}` — routes forward the `?history=true` query parameter 1:1.
+
+```python
+async def get_vc_retrieval_status(
+    self,
+    policy_id: str,
+    event_hash: str,
+    *,
+    submitted_at: datetime,
+) -> VCRetrievalStatus
+```
+
+- Used by `/guardian/*/vc/{event_hash}` to drive SC-007's pending-window behavior.
+- Returns one of:
+  - `ready(vc)` — a VC exists.
+  - `pending` — no VC yet; `now - submitted_at < 30 s`. Route returns `202 Accepted`.
+  - `manual_review` — no VC yet; `now - submitted_at >= 5 min`. Route returns `503 VC_MANUAL_REVIEW` (new error). Event is flagged on `/guardian/health`.
+  - `unknown` — no submission record for `event_hash`. Route returns `404`.
+- The 30 s and 5 min constants are module-level (`VC_PENDING_THRESHOLD_S = 30`, `VC_MANUAL_REVIEW_CEILING_S = 300`) so they can be stubbed under test.
 
 ---
 
@@ -155,6 +177,8 @@ def circuit_status(self) -> Literal["closed", "open", "half_open", "tos_required
 | `GuardianUnavailable` | Network, 5xx, 429 | `503` |
 | `GuardianBreakerOpen` | Breaker open at call time | `503` with `detail: "breaker_open"` — DOES NOT retry |
 | `GuardianTaskTimeout` | Task poll exceeded 120 s | `503` |
+| `GuardianVCPending` | `get_vc_retrieval_status` returns `pending` (within 30 s window) | `202 Accepted` with `{ "status": "pending", "submitted_at": ... }` |
+| `GuardianVCManualReview` | `get_vc_retrieval_status` returns `manual_review` (past 5 min ceiling, SC-007) | `503` with `detail: "vc_manual_review"` |
 
 ## Invariants (tested)
 
@@ -162,7 +186,11 @@ def circuit_status(self) -> Literal["closed", "open", "half_open", "tos_required
 - Breaker stays open for 60 s from the last failure.
 - After 60 s, next call is a probe: success → closed, failure → 60 s window restarts (ONE failure, not another three).
 - `register_user` on an existing username returns the existing DID and does not raise.
-- `submit_document` does not retry inline; retries are the reconciliation job's responsibility (out of scope for v1).
+- `submit_document` does not retry inline — there is no v1 reconciliation worker (spec §FR-006). Breaker-skipped submissions emit a structured WARN log (`event_hash`, `operator_did`, `mgs_error_class`, `breaker_opened_at`) and are replayable only by manual operator re-submission of the idempotent `/events` call.
+- **Idempotency (FR-004)**: callers of `submit_document` MUST first consult `get_vc_by_event_hash` (or a local cache keyed on `event_hash`) and short-circuit if a VC already exists. A duplicate submission does not call MGS and does not increment the breaker counter.
+- **Immutable VCs (FR-014)**: `submit_document` never mutates a prior VC. A correction is a fresh `submit_document` whose payload carries `{"complianceStatus": "superseded", "supersedes": "<prior eventHash>"}`; the resulting chain is retrievable via `get_vc_by_event_hash(..., history=True)`.
+- **Full-payload VCs (FR-015)**: `schema_mapper.to_credential_subject(event)` returns the complete event body (all KDEs) plus `{eventHash, gdstEventType | fsmaEventType, complianceStatus, policyVersion, issuedAt}` and optionally `supersedes`. There is no v1 redaction pass.
+- **SC-007 retrieval window**: `get_vc_retrieval_status` uses the injected `clock` so tests can advance virtual time across the 30 s / 300 s thresholds.
 - `wait_for_task` never races: if the task completes between polls, the next poll observes it.
 
 Each invariant has a matching test under `api/app/tests/integration/guardian/test_circuit_breaker.py` or `test_guardian_client_contract.py`.

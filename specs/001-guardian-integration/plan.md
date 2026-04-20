@@ -15,9 +15,9 @@ Integrate two new Guardian policies (GDST 1.2, FSMA 204) with the existing FastA
 **Testing**: pytest, reusing [api/app/tests/conftest.py](../../api/app/tests/conftest.py). New suite under `api/app/tests/integration/guardian/`. Shared fixtures under `api/app/tests/fixtures/guardian/` which are the same files as `samples/gdst/` and `samples/fsma/` referenced by GPS submission.
 **Target Platform**: Linux server (FastAPI backend); `.policy` exports target any Guardian 2.x-compatible runtime including self-hosted.
 **Project Type**: Web-service extension (new service module + new routes on existing FastAPI app; no frontend changes).
-**Performance Goals**: `/events` p95 latency must not regress by more than 5% with Guardian enabled (SC-003). Guardian submit is async/fire-and-forget on the hot path; VC retrieval is on-demand.
-**Constraints**: Guardian calls must never block HCS recording (Constitution §IV). `.policy` exports must be self-contained (Constitution §II).
-**Scale/Scope**: Single MGS tenant initially. Two policies. 13 schemas total. ~5 new API endpoints under `/guardian/*`. New service module (`guardian_client.py`), schema mapper (`schema_mapper.py`), config additions.
+**Performance Goals**: `/events` p95 latency must not regress by more than 5% with Guardian enabled (SC-003). `GET /guardian/*/vc/{event_hash}` returns `200` within 30 s of submission for 95% of events; the hard ceiling is 5 min before the event is flagged `manual_review` (SC-007). Guardian submit is async/fire-and-forget on the hot path; VC retrieval is on-demand.
+**Constraints**: Guardian calls must never block HCS recording (Constitution §IV). `.policy` exports must be self-contained (Constitution §II). VCs are immutable once issued — corrections are append-only superseding credentials, never mutations (spec §FR-014). `credentialSubject` embeds the full event payload verbatim (FR-015); there is no v1 PII-minimization layer, and operator consent MUST be captured at onboarding.
+**Scale/Scope**: Single MGS tenant initially. Two policies. 13 schemas total. ~5 new API endpoints under `/guardian/*`, plus the optional `?history=true` query on the VC-retrieval endpoints (FR-007). New service module (`guardian_client.py`), schema mapper (`schema_mapper.py`), config additions. No reconciler worker and no backlog table in v1 — breaker-skipped events are log-only (FR-006).
 
 ## Constitution Check
 
@@ -33,6 +33,21 @@ Integrate two new Guardian policies (GDST 1.2, FSMA 204) with the existing FastA
 | VI. Authoritative contracts | OpenAPI subset for MGS boundary under `contracts/mgs-boundary.openapi.yaml`; typed Python interface in `contracts/guardian-client.md`; JSON schemas under `schemas/` at repo root. | Pass |
 
 No violations. Complexity Tracking table remains empty.
+
+### Post-design re-check (2026-04-20, after `/speckit-clarify`)
+
+The 5 clarifications recorded in [spec.md §Clarifications](spec.md) introduced FR-014 (append-only superseding), FR-015 (full-payload `credentialSubject`), SC-007 (30 s / 5 min retrieval window), an idempotency rule on FR-004, and a log-only breaker-recovery stance on FR-006. Re-checking against all six principles:
+
+| Principle | Re-check after clarifications | Status |
+|-----------|-------------------------------|--------|
+| I. Policies are the product | Append-only / `supersedes` is modeled inside `credentialSubject` — no Starfish-specific machinery required to consume the chain. `.policy` exports remain self-contained. | Pass |
+| II. Composable by design | `GuaranteedMetadata` (now formalized in `contracts/vc-output.schema.json`) stays stable; downstream trust-chains continue to filter on `issuer` + `complianceStatus == "compliant"` without revocation-list fetches. | Pass |
+| III. Dual compliance logic | No rule additions; clarifications touch VC representation and recovery semantics, not compliance rules. Rule Source Table unchanged. | Pass |
+| IV. Core flows never block | Log-only recovery keeps the hot path lean. Idempotency short-circuit on duplicate submissions prevents accidental breaker trips. | Pass (stronger) |
+| V. Test-First | New SC-007 thresholds and the `?history=true` behavior add ≥4 new contract tests (already listed in `contracts/guardian-client.md` invariants) that must land before implementation. | Pass |
+| VI. Authoritative contracts | `contracts/vc-output.schema.json` now encodes `supersedes` + `superseded` + `policyVersion` + `issuedAt` via `GuaranteedMetadata`; `contracts/guardian-client.md` encodes the `history` param and `VCRetrievalStatus`. Prose in `data-model.md` links to both. | Pass |
+
+No principle is in tension. Complexity Tracking table remains empty.
 
 ## Phase 0 — Research
 
@@ -58,8 +73,8 @@ Produced in [data-model.md](data-model.md), [quickstart.md](quickstart.md), and 
 ### Contract deliverables
 
 - `contracts/mgs-boundary.openapi.yaml` — subset of MGS endpoints we actually call (auth, accounts, schemas, policies, external intake, tasks, documents). Extracted from the upstream MGS spec at [docs/guardian-integration/api-docs-yaml](../../docs/guardian-integration/api-docs-yaml).
-- `contracts/guardian-client.md` — typed Python interface for `guardian_client.py`: method signatures, error codes, retry/breaker semantics, task-poll contract.
-- `contracts/vc-output.schema.json` — JSON Schema for the issued VC types (`GDSTComplianceCredential`, `FSMA204ComplianceCredential`) including the Guaranteed-fields contract that downstream policies rely on.
+- `contracts/guardian-client.md` — typed Python interface for `guardian_client.py`: method signatures (incl. `history: bool` on `get_vc_by_event_hash` and the new `get_vc_retrieval_status`), error codes (incl. `GuardianVCPending`, `GuardianVCManualReview`), retry/breaker semantics, task-poll contract, idempotency and append-only invariants.
+- `contracts/vc-output.schema.json` — JSON Schema for the issued VC types (`GDSTComplianceCredential`, `FSMA204ComplianceCredential`) including the shared `GuaranteedMetadata` object (`eventHash`, `complianceStatus ∈ {compliant, superseded}`, `policyVersion`, `issuedAt`, conditional `supersedes`) plus `credentialSubject: additionalProperties: true` so the full event payload flows through (spec §FR-014 / §FR-015).
 - `contracts/gps-submission-checklist.md` — the GPS deliverables checklist as a machine-auditable list (one checkbox per item in [docs/guardian-integration/03-gps-submission.md §4](../../docs/guardian-integration/03-gps-submission.md)).
 
 ### Runbook deliverable

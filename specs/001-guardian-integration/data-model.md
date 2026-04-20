@@ -35,14 +35,28 @@ W3C VC v1 with DPP-Hedera-specific `credentialSubject` fields.
 
 - **Envelope**: `@context: https://www.w3.org/2018/credentials/v1`, `issuer: <SR DID>`, `issuanceDate`, `proof: Ed25519Signature2018`.
 - **Type**: `["VerifiableCredential", "GDSTComplianceCredential"]` or `["VerifiableCredential", "FSMA204ComplianceCredential"]`.
-- **Guaranteed** `credentialSubject` fields (downstream-policy contract, Constitution §II):
+- **`credentialSubject` shape**: embeds the **full submitted event payload verbatim** (all KDEs on the source event) plus the Guaranteed metadata fields below (spec §FR-015). The canonical JSON-schema description is [contracts/vc-output.schema.json](contracts/vc-output.schema.json).
+- **Guaranteed metadata fields** (downstream-policy contract, Constitution §II — every VC carries these regardless of event type):
 
-| Type | Guaranteed | Optional |
-|------|-----------|----------|
-| `GDSTComplianceCredential` | `eventHash`, `gdstEventType`, `complianceStatus`, `species` | `catchArea`, `fishingAuthorization`, `vesselId`, `landingAuthorization`, `transshipmentAuthorization` |
-| `FSMA204ComplianceCredential` | `eventHash`, `eventType`, `complianceStatus` | `facility`, `shipFrom`, `shipTo` |
+| Field | Type | Notes |
+|-------|------|-------|
+| `eventHash` | `0x` + 64 hex | Equals the `bytes32` emitted by `ComplianceVerifier.recordEvent()` |
+| `complianceStatus` | enum `compliant \| superseded` | `superseded` only on corrective VCs (FR-014) |
+| `policyVersion` | semver | The Guardian policy version that issued this VC (FR-012) |
+| `issuedAt` | ISO 8601 date-time | Guardian-issuance timestamp, may lag `submitted_at` by up to 5 min (SC-007) |
+| `supersedes` | `0x` + 64 hex (conditional) | Required iff `complianceStatus == "superseded"`; references the prior VC's `eventHash` |
+| `gdstEventType` or `eventType` | enum | Discriminator — drives the Pydantic/schema match on read |
+
+- **Per-type additional Guaranteed fields**:
+
+| Type | Extra Guaranteed |
+|------|------------------|
+| `GDSTComplianceCredential` | `species` (`^[A-Z]{3}$`). Additional KDEs (`catchArea`, `fishingAuthorization`, `vesselId`, `landingAuthorization`, `transshipmentAuthorization`, …) flow through as part of the full event payload but are not required on every event type |
+| `FSMA204ComplianceCredential` | (none beyond the base); all KDEs (`facility`, `shipFrom`, `shipTo`, quantity lists, …) flow through as part of the full event payload |
 
 - **`eventHash` equivalence**: MUST equal the `bytes32` emitted by `ComplianceVerifier.recordEvent()` for the same event.
+- **Immutability (FR-014)**: once issued, a VC is never mutated or deleted. A correction is a **new** VC of the same type carrying `complianceStatus = "superseded"` and `supersedes = <prior eventHash>`. The chain `[oldest, …, latest]` is retrievable via `GET /guardian/*/vc/{event_hash}?history=true` (FR-007).
+- **Idempotency (FR-004)**: exactly one "latest" VC exists per `eventHash` at any time. Duplicate `/events` submissions short-circuit to the existing VC without calling MGS.
 
 ### Standard Registry (SR)
 

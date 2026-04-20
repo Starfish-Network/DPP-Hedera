@@ -43,8 +43,32 @@
     },
     "ComplianceStatus": {
       "type": "string",
-      "enum": ["compliant"],
-      "description": "Only compliant VCs are issued; non-compliant events are rejected (User Story 1/2 acceptance)."
+      "enum": ["compliant", "superseded"],
+      "description": "Issued VCs are `compliant`; corrections are issued as a new VC with `superseded` referencing the prior via `supersedes` (spec §FR-014). Non-compliant events are rejected upstream and never produce a VC."
+    },
+    "GuaranteedMetadata": {
+      "type": "object",
+      "required": ["eventHash", "complianceStatus", "policyVersion", "issuedAt"],
+      "properties": {
+        "eventHash": { "$ref": "#/$defs/EventHash" },
+        "complianceStatus": { "$ref": "#/$defs/ComplianceStatus" },
+        "policyVersion": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+\\.\\d+$",
+          "description": "Semver of the Guardian policy that issued this VC (spec §FR-012)."
+        },
+        "issuedAt": { "type": "string", "format": "date-time" },
+        "supersedes": {
+          "$ref": "#/$defs/EventHash",
+          "description": "Required when complianceStatus = 'superseded'; points at the prior VC's eventHash. Absent on the original compliant VC (spec §FR-014)."
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "complianceStatus": { "const": "superseded" } } },
+          "then": { "required": ["supersedes"] }
+        }
+      ]
     },
     "GDSTComplianceCredential": {
       "allOf": [
@@ -57,31 +81,35 @@
               "contains": { "const": "GDSTComplianceCredential" }
             },
             "credentialSubject": {
-              "type": "object",
-              "required": ["eventHash", "gdstEventType", "complianceStatus", "species"],
-              "properties": {
-                "eventHash": { "$ref": "#/$defs/EventHash" },
-                "gdstEventType": {
-                  "type": "string",
-                  "enum": [
-                    "Fishing",
-                    "Landing",
-                    "Transshipment",
-                    "OnVesselProcessing",
-                    "Processing",
-                    "Shipping",
-                    "Aggregation"
-                  ]
-                },
-                "complianceStatus": { "$ref": "#/$defs/ComplianceStatus" },
-                "species": { "type": "string", "pattern": "^[A-Z]{3}$" },
-                "catchArea": { "type": "string", "pattern": "^FAO\\d{2,3}$" },
-                "fishingAuthorization": { "type": "string" },
-                "landingAuthorization": { "type": "string" },
-                "transshipmentAuthorization": { "type": "string" },
-                "vesselId": { "type": "string" }
-              },
-              "additionalProperties": true
+              "description": "Embeds the full submitted GDST event payload verbatim (spec §FR-015) plus the Guaranteed metadata fields. `additionalProperties: true` is intentional — all KDEs present on the source event MUST flow through unredacted.",
+              "allOf": [
+                { "$ref": "#/$defs/GuaranteedMetadata" },
+                {
+                  "type": "object",
+                  "required": ["gdstEventType", "species"],
+                  "properties": {
+                    "gdstEventType": {
+                      "type": "string",
+                      "enum": [
+                        "Fishing",
+                        "Landing",
+                        "Transshipment",
+                        "OnVesselProcessing",
+                        "Processing",
+                        "Shipping",
+                        "Aggregation"
+                      ]
+                    },
+                    "species": { "type": "string", "pattern": "^[A-Z]{3}$" },
+                    "catchArea": { "type": "string", "pattern": "^FAO\\d{2,3}$" },
+                    "fishingAuthorization": { "type": "string" },
+                    "landingAuthorization": { "type": "string" },
+                    "transshipmentAuthorization": { "type": "string" },
+                    "vesselId": { "type": "string" }
+                  },
+                  "additionalProperties": true
+                }
+              ]
             }
           }
         }
@@ -98,27 +126,31 @@
               "contains": { "const": "FSMA204ComplianceCredential" }
             },
             "credentialSubject": {
-              "type": "object",
-              "required": ["eventHash", "eventType", "complianceStatus"],
-              "properties": {
-                "eventHash": { "$ref": "#/$defs/EventHash" },
-                "eventType": {
-                  "type": "string",
-                  "enum": [
-                    "creating",
-                    "shipping",
-                    "receiving",
-                    "transforming",
-                    "packing",
-                    "unpacking"
-                  ]
-                },
-                "complianceStatus": { "$ref": "#/$defs/ComplianceStatus" },
-                "facility": { "type": "string" },
-                "shipFrom": { "type": "string" },
-                "shipTo": { "type": "string" }
-              },
-              "additionalProperties": true
+              "description": "Embeds the full submitted FSMA event payload verbatim (spec §FR-015) plus the Guaranteed metadata fields. `additionalProperties: true` is intentional — all KDEs present on the source event MUST flow through unredacted.",
+              "allOf": [
+                { "$ref": "#/$defs/GuaranteedMetadata" },
+                {
+                  "type": "object",
+                  "required": ["eventType"],
+                  "properties": {
+                    "eventType": {
+                      "type": "string",
+                      "enum": [
+                        "creating",
+                        "shipping",
+                        "receiving",
+                        "transforming",
+                        "packing",
+                        "unpacking"
+                      ]
+                    },
+                    "facility": { "type": "string" },
+                    "shipFrom": { "type": "string" },
+                    "shipTo": { "type": "string" }
+                  },
+                  "additionalProperties": true
+                }
+              ]
             }
           }
         }
