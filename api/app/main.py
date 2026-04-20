@@ -2,16 +2,18 @@ from fastapi import FastAPI
 from app.routes import trace
 from app.routes.epcis import epcis
 from app.routes.gdst import gdst
+from app.routes import guardian
 from app.core.auth import create_access_token
 from datetime import timedelta
 
 app = FastAPI(title="Starfish Hedera Traceability API", version="1.0.0", root_path="/api/v1",
-              docs_url="/swagger", 
+              docs_url="/swagger",
               redoc_url="/redoc")
 
 app.include_router(gdst.router)
 app.include_router(epcis.router)
 app.include_router(trace.router)
+app.include_router(guardian.router)
 
 @app.post("/login")
 def login(username: str, role: str = "reader"):

@@ -1,4 +1,6 @@
 from pydantic_settings import BaseSettings
+from pydantic import model_validator
+from typing import Literal
 import os
 
 class Settings(BaseSettings):
@@ -28,6 +30,29 @@ class Settings(BaseSettings):
     PINATA_API_URL: str = "https://testnet.pinata.cloud"
     PINATA_API_KEY: str | None = None
     PINATA_API_SECRET: str | None = None
+
+    # Guardian / MGS (feature 001-guardian-integration, research.md §1 & §4)
+    GUARDIAN_NETWORK: Literal["testnet", "mainnet"] = "testnet"
+    GUARDIAN_API_URL: str | None = None
+    GUARDIAN_SR_USERNAME: str | None = None
+    GUARDIAN_SR_PASSWORD: str | None = None
+    GUARDIAN_GDST_POLICY_ID: str | None = None
+    GUARDIAN_FSMA_POLICY_ID: str | None = None
+    GUARDIAN_GDST_INTAKE_BLOCK_TAG: str | None = None
+    GUARDIAN_FSMA_INTAKE_BLOCK_TAG: str | None = None
+    GUARDIAN_VC_PENDING_THRESHOLD_S: int = 30       # SC-007 pending window
+    GUARDIAN_VC_MANUAL_REVIEW_CEILING_S: int = 300  # SC-007 manual-review ceiling
+    GUARDIAN_BREAKER_FAIL_COUNT: int = 3            # FR-005 / research.md §3
+    GUARDIAN_BREAKER_OPEN_DURATION_S: int = 60      # FR-005 / research.md §3
+
+    @model_validator(mode="after")
+    def _guardian_network_matches_hedera_network(self) -> "Settings":
+        if self.GUARDIAN_NETWORK != self.NETWORK:
+            raise ValueError(
+                "GUARDIAN_NETWORK must match NETWORK — mixing testnet Guardian DIDs with "
+                "mainnet Hedera identities is forbidden (research.md §1)."
+            )
+        return self
 
     class Config:
         env_file = f".env.{os.getenv('ENV', 'dev')}"

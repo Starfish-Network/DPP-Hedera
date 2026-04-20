@@ -18,13 +18,13 @@
 
 **Purpose**: Dependencies, directory skeletons, config keys.
 
-- [ ] T001 Add `httpx`, `respx`, `tenacity`, and `pyld` (JSON-LD) to [api/pyproject.toml](api/pyproject.toml) under `[project.dependencies]`; regenerate the lockfile.
-- [ ] T002 [P] Create top-level artifact directories [schemas/gdst/](schemas/gdst/), [schemas/fsma/](schemas/fsma/), [schemas/policies/](schemas/policies/), [samples/gdst/](samples/gdst/), [samples/fsma/](samples/fsma/) with a README.md in each explaining "this is a GPS deliverable — do not rename or flatten."
-- [ ] T003 [P] Symlink [api/app/tests/fixtures/guardian/gdst](api/app/tests/fixtures/guardian/gdst) → `../../../../samples/gdst` and `api/app/tests/fixtures/guardian/fsma` → `../../../../samples/fsma` (single source of truth per Constitution §Development Workflow #3).
-- [ ] T004 [P] Add Guardian config keys to [api/app/core/config.py](api/app/core/config.py): `GUARDIAN_NETWORK`, `GUARDIAN_API_URL`, `GUARDIAN_SR_USERNAME`, `GUARDIAN_SR_PASSWORD`, `GUARDIAN_GDST_POLICY_ID`, `GUARDIAN_FSMA_POLICY_ID`, `GUARDIAN_GDST_INTAKE_BLOCK_TAG`, `GUARDIAN_FSMA_INTAKE_BLOCK_TAG`, `GUARDIAN_VC_PENDING_THRESHOLD_S=30`, `GUARDIAN_VC_MANUAL_REVIEW_CEILING_S=300`, `GUARDIAN_BREAKER_FAIL_COUNT=3`, `GUARDIAN_BREAKER_OPEN_DURATION_S=60`. Pydantic-settings validator rejects mixed testnet/mainnet DIDs (research.md §1).
-- [ ] T005 [P] Create empty module skeletons: [api/app/service/guardian_client.py](api/app/service/guardian_client.py), [api/app/service/schema_mapper.py](api/app/service/schema_mapper.py) (module docstring only).
-- [ ] T006 [P] Create route package skeleton: [api/app/routes/guardian/__init__.py](api/app/routes/guardian/__init__.py), [api/app/routes/guardian/identity.py](api/app/routes/guardian/identity.py), [api/app/routes/guardian/policy.py](api/app/routes/guardian/policy.py) (empty FastAPI `APIRouter` in each).
-- [ ] T007 Register the `/guardian` router in [api/app/main.py](api/app/main.py) after the existing routers.
+- [X] T001 Add `httpx`, `respx`, `tenacity`, and `pyld` (JSON-LD) to [api/requirements.txt](api/requirements.txt) (repo uses requirements.txt, not pyproject.toml). `httpx` already present; added `respx==0.21.1`, `tenacity==8.5.0`, `pyld==2.0.4`.
+- [X] T002 [P] Create top-level artifact directories [schemas/gdst/](schemas/gdst/), [schemas/fsma/](schemas/fsma/), [schemas/policies/](schemas/policies/), [samples/gdst/](samples/gdst/), [samples/fsma/](samples/fsma/) with a README.md in each explaining "this is a GPS deliverable — do not rename or flatten."
+- [X] T003 [P] Symlink [api/app/tests/fixtures/guardian/gdst](api/app/tests/fixtures/guardian/gdst) → `../../../../../samples/gdst` and `api/app/tests/fixtures/guardian/fsma` → `../../../../../samples/fsma` (5-up, not 4-up — guardian/ is one level deeper than initially planned). Single source of truth per Constitution §Development Workflow #3.
+- [X] T004 [P] Add Guardian config keys to [api/app/core/config.py](api/app/core/config.py): `GUARDIAN_NETWORK`, `GUARDIAN_API_URL`, `GUARDIAN_SR_USERNAME`, `GUARDIAN_SR_PASSWORD`, `GUARDIAN_GDST_POLICY_ID`, `GUARDIAN_FSMA_POLICY_ID`, `GUARDIAN_GDST_INTAKE_BLOCK_TAG`, `GUARDIAN_FSMA_INTAKE_BLOCK_TAG`, `GUARDIAN_VC_PENDING_THRESHOLD_S=30`, `GUARDIAN_VC_MANUAL_REVIEW_CEILING_S=300`, `GUARDIAN_BREAKER_FAIL_COUNT=3`, `GUARDIAN_BREAKER_OPEN_DURATION_S=60`. Pydantic-settings validator rejects mixed testnet/mainnet DIDs (research.md §1).
+- [X] T005 [P] Create empty module skeletons: [api/app/service/guardian_client.py](api/app/service/guardian_client.py), [api/app/service/schema_mapper.py](api/app/service/schema_mapper.py) (module docstring only).
+- [X] T006 [P] Create route package skeleton: [api/app/routes/guardian/__init__.py](api/app/routes/guardian/__init__.py), [api/app/routes/guardian/identity.py](api/app/routes/guardian/identity.py), [api/app/routes/guardian/policy.py](api/app/routes/guardian/policy.py) (empty FastAPI `APIRouter` in each; __init__.py aggregates, mirroring the gdst.py/epcis.py pattern).
+- [X] T007 Register the `/guardian` router in [api/app/main.py](api/app/main.py) after the existing routers.
 
 ---
 
