@@ -45,7 +45,7 @@ W3C VC v1 with DPP-Hedera-specific `credentialSubject` fields.
 | `policyVersion` | semver | The Guardian policy version that issued this VC (FR-012) |
 | `issuedAt` | ISO 8601 date-time | Guardian-issuance timestamp, may lag `submitted_at` by up to 5 min (SC-007) |
 | `supersedes` | `0x` + 64 hex (conditional) | Required iff `complianceStatus == "superseded"`; references the prior VC's `eventHash` |
-| `gdstEventType` or `eventType` | enum | Discriminator — drives the Pydantic/schema match on read |
+| `gdstEventType` or `fsma204EventType` | enum | Discriminator — drives the Pydantic/schema match on read |
 
 - **Per-type additional Guaranteed fields**:
 

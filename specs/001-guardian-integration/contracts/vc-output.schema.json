@@ -131,9 +131,9 @@
                 { "$ref": "#/$defs/GuaranteedMetadata" },
                 {
                   "type": "object",
-                  "required": ["eventType"],
+                  "required": ["fsma204EventType"],
                   "properties": {
-                    "eventType": {
+                    "fsma204EventType": {
                       "type": "string",
                       "enum": [
                         "creating",

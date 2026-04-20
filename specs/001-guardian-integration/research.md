@@ -47,7 +47,7 @@ Breaker opens after 3 consecutive "Yes" responses; stays open 60 s; next call af
 **Alternatives considered**:
 
 - *Exponential backoff instead of a fixed 60 s window*. Rejected for v1: fixed window is simpler and the constitution already specifies 60 s. Revisit if production data shows MGS outages cluster longer.
-- *Queue skipped submissions for automatic retry*. Deferred. For v1, skipped events are logged with their HCS event hash so a reconciliation job can backfill them later. The reconciliation job itself is out of scope for this feature; tracked as a follow-up.
+- *Queue skipped submissions for automatic retry*. **Rejected for v1** (spec.md Clarifications Q2 / FR-006). Skipped events emit a structured WARN log with `{event_hash, operator_did, mgs_error_class, breaker_opened_at}`; re-submission is manual via the idempotent `/events` call. A reconciliation worker remains a possible v2 feature but is not scheduled.
 
 **Consequences**: `guardian_client` exposes `circuit_status()` returning one of `{closed, open, half_open, tos_required}`. `/guardian/health` surfaces this. `tos_required` is a distinct operational state, not a retry problem.
 
@@ -98,4 +98,3 @@ Schema IRIs are semver (`#GDSTFishingEvent&1.0.0`); breaking changes bump the ma
 
 - Exact test matrix — one acceptance test per rule in `data-model.md` §Rule Source Table.
 - Ordering of schema publish, policy publish, and policy export steps in the bootstrap script.
-- Whether the reconciliation job for skipped Guardian submissions ships with v1 or as a follow-up (currently: follow-up).

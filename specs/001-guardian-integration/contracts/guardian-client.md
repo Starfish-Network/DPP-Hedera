@@ -189,7 +189,7 @@ def circuit_status(self) -> Literal["closed", "open", "half_open", "tos_required
 - `submit_document` does not retry inline — there is no v1 reconciliation worker (spec §FR-006). Breaker-skipped submissions emit a structured WARN log (`event_hash`, `operator_did`, `mgs_error_class`, `breaker_opened_at`) and are replayable only by manual operator re-submission of the idempotent `/events` call.
 - **Idempotency (FR-004)**: callers of `submit_document` MUST first consult `get_vc_by_event_hash` (or a local cache keyed on `event_hash`) and short-circuit if a VC already exists. A duplicate submission does not call MGS and does not increment the breaker counter.
 - **Immutable VCs (FR-014)**: `submit_document` never mutates a prior VC. A correction is a fresh `submit_document` whose payload carries `{"complianceStatus": "superseded", "supersedes": "<prior eventHash>"}`; the resulting chain is retrievable via `get_vc_by_event_hash(..., history=True)`.
-- **Full-payload VCs (FR-015)**: `schema_mapper.to_credential_subject(event)` returns the complete event body (all KDEs) plus `{eventHash, gdstEventType | fsmaEventType, complianceStatus, policyVersion, issuedAt}` and optionally `supersedes`. There is no v1 redaction pass.
+- **Full-payload VCs (FR-015)**: `schema_mapper.to_credential_subject(event)` returns the complete event body (all KDEs) plus `{eventHash, gdstEventType | fsma204EventType, complianceStatus, policyVersion, issuedAt}` and optionally `supersedes`. There is no v1 redaction pass.
 - **SC-007 retrieval window**: `get_vc_retrieval_status` uses the injected `clock` so tests can advance virtual time across the 30 s / 300 s thresholds.
 - `wait_for_task` never races: if the task completes between polls, the next poll observes it.
 
