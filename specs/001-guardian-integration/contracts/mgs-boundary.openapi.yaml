@@ -1,0 +1,383 @@
+openapi: 3.0.3
+info:
+  title: MGS Boundary (subset used by DPP-Hedera)
+  version: 0.1.0
+  description: |
+    Subset of the Managed Guardian Service REST API that this repo actually calls.
+    The upstream canonical spec is in
+    [docs/guardian-integration/api-docs-yaml](../../../docs/guardian-integration/api-docs-yaml).
+    This file is the *contract* between our client and MGS — if an endpoint we call
+    is not listed here, it must be added in the same PR that adds the call.
+servers:
+  - url: "{guardianApiUrl}"
+    variables:
+      guardianApiUrl:
+        default: https://example.mgs.hedera.com/api/v1
+        description: From GUARDIAN_API_URL
+security:
+  - bearerAuth: []
+paths:
+  /accounts/login:
+    post:
+      summary: Authenticate and get a JWT.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username: { type: string }
+                password: { type: string }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [accessToken]
+                properties:
+                  accessToken: { type: string }
+                  refreshToken: { type: string }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "451": { $ref: "#/components/responses/ToSRequired" }
+
+  /accounts/session:
+    get:
+      summary: Validate session / health check.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Session" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "451": { $ref: "#/components/responses/ToSRequired" }
+
+  /accounts/register:
+    post:
+      summary: Register a user under the tenant.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password, role]
+              properties:
+                username: { type: string }
+                password: { type: string }
+                role:
+                  type: string
+                  enum: [User, STANDARD_REGISTRY]
+      responses:
+        "200": { $ref: "#/components/responses/UserRecord" }
+        "409":
+          description: Username exists (client resolves existing DID)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /profiles/{username}:
+    parameters:
+      - $ref: "#/components/parameters/Username"
+    get:
+      summary: Resolve user profile (includes DID once activated).
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Profile" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    put:
+      summary: Set Hedera credentials synchronously (activates DID).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/HederaCredentials" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Profile" }
+
+  /profiles/push/{username}:
+    parameters:
+      - $ref: "#/components/parameters/Username"
+    put:
+      summary: Set Hedera credentials asynchronously (returns a task).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/HederaCredentials" }
+      responses:
+        "202":
+          description: Accepted
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TaskHandle" }
+
+  /schemas:
+    post:
+      summary: Create a schema (SR only, sync).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SchemaRecord" }
+
+  /schemas/push/{id}/publish:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    put:
+      summary: Publish schema asynchronously.
+      responses:
+        "202":
+          description: Accepted
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TaskHandle" }
+
+  /policies:
+    post:
+      summary: Create a policy (SR only).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PolicyRecord" }
+
+  /policies/push/{id}/publish:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    put:
+      summary: Publish policy asynchronously.
+      responses:
+        "202":
+          description: Accepted
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TaskHandle" }
+
+  /policies/{id}/export/file:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    get:
+      summary: Export a policy as a .policy zip.
+      responses:
+        "200":
+          description: The .policy file
+          content:
+            application/zip:
+              schema: { type: string, format: binary }
+
+  /policies/{id}/documents:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+      - in: query
+        name: type
+        schema: { type: string, enum: [VC, VP] }
+      - in: query
+        name: pageIndex
+        schema: { type: integer, default: 0 }
+      - in: query
+        name: pageSize
+        schema: { type: integer, default: 100, maximum: 1000 }
+    get:
+      summary: List documents (VCs) produced by the policy.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/VCDocument" }
+
+  /external/{policyId}/{blockTag}:
+    parameters:
+      - in: path
+        name: policyId
+        required: true
+        schema: { type: string }
+      - in: path
+        name: blockTag
+        required: true
+        schema: { type: string }
+    post:
+      summary: Submit an event document to a policy's external-data intake block.
+      description: |
+        MGS accepts the document immediately and processes it asynchronously.
+        The VC, if any, appears later under /policies/{id}/documents?type=VC.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object }
+      responses:
+        "200":
+          description: Accepted for processing
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SubmitAck" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "451": { $ref: "#/components/responses/ToSRequired" }
+
+  /tasks/{taskId}:
+    parameters:
+      - in: path
+        name: taskId
+        required: true
+        schema: { type: string }
+    get:
+      summary: Poll an async task.
+      responses:
+        "200":
+          description: Task status
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TaskResult" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    Username:
+      in: path
+      name: username
+      required: true
+      schema: { type: string }
+    Id:
+      in: path
+      name: id
+      required: true
+      schema: { type: string }
+
+  schemas:
+    Session:
+      type: object
+      properties:
+        did: { type: string }
+        role: { type: string }
+        tenantId: { type: string }
+
+    HederaCredentials:
+      type: object
+      required: [hederaAccountId, hederaPrivateKey]
+      properties:
+        hederaAccountId: { type: string, example: "0.0.12345" }
+        hederaPrivateKey: { type: string }
+
+    Profile:
+      type: object
+      properties:
+        username: { type: string }
+        did: { type: string, nullable: true }
+        role: { type: string }
+
+    SchemaRecord:
+      type: object
+      properties:
+        id: { type: string }
+        iri: { type: string, description: "e.g. #GDSTFishingEvent&1.0.0" }
+        status: { type: string, enum: [DRAFT, PUBLISHED] }
+
+    PolicyRecord:
+      type: object
+      properties:
+        id: { type: string }
+        policyTag: { type: string }
+        status: { type: string, enum: [DRAFT, PUBLISHED] }
+
+    TaskHandle:
+      type: object
+      required: [taskId]
+      properties:
+        taskId: { type: string }
+
+    TaskResult:
+      type: object
+      required: [taskId, status]
+      properties:
+        taskId: { type: string }
+        status: { type: string, enum: [PENDING, PROCESSING, COMPLETED, FAILED] }
+        result: { nullable: true }
+        error: { type: string, nullable: true }
+
+    SubmitAck:
+      type: object
+      properties:
+        accepted: { type: boolean }
+        message: { type: string, nullable: true }
+
+    VCDocument:
+      type: object
+      properties:
+        id: { type: string }
+        type: { type: array, items: { type: string } }
+        issuer: { type: string }
+        credentialSubject:
+          type: object
+          properties:
+            eventHash: { type: string, description: "0x-prefixed bytes32 from ComplianceVerifier" }
+        proof:
+          type: object
+
+    UserRecord:
+      type: object
+      properties:
+        username: { type: string }
+        role: { type: string }
+        did: { type: string, nullable: true }
+
+    Error:
+      type: object
+      properties:
+        code: { type: string }
+        message: { type: string }
+
+  responses:
+    Unauthorized:
+      description: Unauthorized
+      content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+    NotFound:
+      description: Not found
+      content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+    RateLimited:
+      description: Rate limited
+      headers:
+        Retry-After:
+          schema: { type: string }
+      content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+    ToSRequired:
+      description: Terms of Service must be accepted in the MGS portal.
+      content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+    UserRecord:
+      description: User record
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/UserRecord" }

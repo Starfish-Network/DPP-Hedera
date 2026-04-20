@@ -1,0 +1,128 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dpp.starfish.network/schemas/vc-output.schema.json",
+  "title": "DPP-Hedera Compliance VC — output contract",
+  "description": "Shape guarantees made by our Guardian policies to downstream consumers. Any policy we publish under FR-004 MUST produce VCs that validate against the matching oneOf branch.",
+  "oneOf": [
+    { "$ref": "#/$defs/GDSTComplianceCredential" },
+    { "$ref": "#/$defs/FSMA204ComplianceCredential" }
+  ],
+  "$defs": {
+    "BaseVC": {
+      "type": "object",
+      "required": ["@context", "type", "issuer", "issuanceDate", "credentialSubject", "proof"],
+      "properties": {
+        "@context": {
+          "type": "array",
+          "contains": { "const": "https://www.w3.org/2018/credentials/v1" }
+        },
+        "type": {
+          "type": "array",
+          "contains": { "const": "VerifiableCredential" },
+          "minItems": 2
+        },
+        "issuer": {
+          "type": "string",
+          "pattern": "^did:hedera:(testnet|mainnet):.+_0\\.0\\.[0-9]+$",
+          "description": "Standard Registry DID; the trust anchor (Constitution §II)."
+        },
+        "issuanceDate": { "type": "string", "format": "date-time" },
+        "proof": {
+          "type": "object",
+          "required": ["type"],
+          "properties": {
+            "type": { "const": "Ed25519Signature2018" }
+          }
+        }
+      }
+    },
+    "EventHash": {
+      "type": "string",
+      "pattern": "^0x[0-9a-fA-F]{64}$",
+      "description": "Must equal the bytes32 emitted by ComplianceVerifier.recordEvent() for the same event (FR-004)."
+    },
+    "ComplianceStatus": {
+      "type": "string",
+      "enum": ["compliant"],
+      "description": "Only compliant VCs are issued; non-compliant events are rejected (User Story 1/2 acceptance)."
+    },
+    "GDSTComplianceCredential": {
+      "allOf": [
+        { "$ref": "#/$defs/BaseVC" },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "array",
+              "contains": { "const": "GDSTComplianceCredential" }
+            },
+            "credentialSubject": {
+              "type": "object",
+              "required": ["eventHash", "gdstEventType", "complianceStatus", "species"],
+              "properties": {
+                "eventHash": { "$ref": "#/$defs/EventHash" },
+                "gdstEventType": {
+                  "type": "string",
+                  "enum": [
+                    "Fishing",
+                    "Landing",
+                    "Transshipment",
+                    "OnVesselProcessing",
+                    "Processing",
+                    "Shipping",
+                    "Aggregation"
+                  ]
+                },
+                "complianceStatus": { "$ref": "#/$defs/ComplianceStatus" },
+                "species": { "type": "string", "pattern": "^[A-Z]{3}$" },
+                "catchArea": { "type": "string", "pattern": "^FAO\\d{2,3}$" },
+                "fishingAuthorization": { "type": "string" },
+                "landingAuthorization": { "type": "string" },
+                "transshipmentAuthorization": { "type": "string" },
+                "vesselId": { "type": "string" }
+              },
+              "additionalProperties": true
+            }
+          }
+        }
+      ]
+    },
+    "FSMA204ComplianceCredential": {
+      "allOf": [
+        { "$ref": "#/$defs/BaseVC" },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "array",
+              "contains": { "const": "FSMA204ComplianceCredential" }
+            },
+            "credentialSubject": {
+              "type": "object",
+              "required": ["eventHash", "eventType", "complianceStatus"],
+              "properties": {
+                "eventHash": { "$ref": "#/$defs/EventHash" },
+                "eventType": {
+                  "type": "string",
+                  "enum": [
+                    "creating",
+                    "shipping",
+                    "receiving",
+                    "transforming",
+                    "packing",
+                    "unpacking"
+                  ]
+                },
+                "complianceStatus": { "$ref": "#/$defs/ComplianceStatus" },
+                "facility": { "type": "string" },
+                "shipFrom": { "type": "string" },
+                "shipTo": { "type": "string" }
+              },
+              "additionalProperties": true
+            }
+          }
+        }
+      ]
+    }
+  }
+}
