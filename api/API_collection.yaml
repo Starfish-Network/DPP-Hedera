@@ -118,6 +118,83 @@ collection:
         send: true
         store: true
       rebuildPath: true
+  - url: "{{ _.base_url }}/guardian/health"
+    name: guardian health
+    meta:
+      id: req_guardian_health_0001
+      created: 1777372800000
+      modified: 1777372800000
+      isPrivate: false
+      description: Liveness + circuit-breaker state for the MGS-backed Guardian client.
+      sortKey: -1777372800000
+    method: GET
+    headers:
+      - name: User-Agent
+        value: insomnia/12.0.0
+    settings:
+      renderRequestBody: true
+      encodeUrl: true
+      followRedirects: global
+      cookies:
+        send: true
+        store: true
+      rebuildPath: true
+  - url: "{{ _.base_url }}/guardian/register"
+    name: guardian register
+    meta:
+      id: req_guardian_register_0001
+      created: 1777372800001
+      modified: 1777372800001
+      isPrivate: false
+      description: >-
+        Register an operator on MGS (idempotent) and push FR-015 consent onto
+        the Guardian profile via set_user_credentials + wait_for_task.
+      sortKey: -1777372800001
+    method: POST
+    body:
+      mimeType: application/json
+      text: |-
+        {
+          "username": "operator-001",
+          "password": "change-me-please",
+          "acknowledged_vc_disclosure": true,
+          "consent_recorded_at": "2026-04-21T12:00:00Z",
+          "role": "User"
+        }
+    headers:
+      - name: Content-Type
+        value: application/json
+      - name: User-Agent
+        value: insomnia/12.0.0
+    settings:
+      renderRequestBody: true
+      encodeUrl: true
+      followRedirects: global
+      cookies:
+        send: true
+        store: true
+      rebuildPath: true
+  - url: "{{ _.base_url }}/guardian/did/{{ _.operator_username }}"
+    name: guardian did
+    meta:
+      id: req_guardian_did_0001
+      created: 1777372800002
+      modified: 1777372800002
+      isPrivate: false
+      description: Resolve an operator's Hedera DID by username.
+      sortKey: -1777372800002
+    method: GET
+    headers:
+      - name: User-Agent
+        value: insomnia/12.0.0
+    settings:
+      renderRequestBody: true
+      encodeUrl: true
+      followRedirects: global
+      cookies:
+        send: true
+        store: true
+      rebuildPath: true
 cookieJar:
   name: Default Jar
   meta:
@@ -131,3 +208,6 @@ environments:
     created: 1759588654857
     modified: 1759588654857
     isPrivate: false
+  data:
+    base_url: http://localhost:8000
+    operator_username: operator-001

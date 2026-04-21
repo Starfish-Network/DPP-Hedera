@@ -4,7 +4,7 @@ import requests
 
 pytestmark = pytest.mark.integration
 
-BASE_URL = os.getenv("TEST_URL", "http://hedera-integration-service:8000/api")
+BASE_URL = os.getenv("TEST_URL", "http://hedera-integration-service:8000/api/v1")
 
 
 def test_gdst_event_happy_path():

@@ -5,7 +5,7 @@ import requests
 
 pytestmark = pytest.mark.integration
 
-BASE_URL = os.getenv("TEST_URL", "http://hedera-integration-service:8000/api")
+BASE_URL = os.getenv("TEST_URL", "http://hedera-integration-service:8000/api/v1")
 
 PRODUCT_A = "urn:epc:class:lgtin:9506000.1231"
 PRODUCT_B = "urn:epc:class:lgtin:9506000.1233"
@@ -54,10 +54,10 @@ def test_events():
 
 @pytest.fixture(scope="session", autouse=True)
 def publish_events(test_events):
-    """Push test events through /api/events before lineage testing."""
+    """Push test events through /api/v1/epcis/events before lineage testing."""
     print("🚀 Publishing lineage test events ...")
     for evt in test_events:
-        r = requests.post(f"{BASE_URL}/events", json=evt, timeout=30)
+        r = requests.post(f"{BASE_URL}/epcis/events", json=evt, timeout=30)
         assert r.status_code == 200, f"Failed to publish event: {r.text}"
     print("✅ Test events submitted. Waiting for mirror node sync...")
     time.sleep(15)

@@ -7,7 +7,7 @@ import requests
 
 pytestmark = pytest.mark.integration
 
-BASE_URL = os.getenv("TEST_URL", "http://hedera-integration-service:8000/api")
+BASE_URL = os.getenv("TEST_URL", "http://hedera-integration-service:8000/api/v1")
 TOPIC_ID = os.getenv("TOPIC_ID")
 MIRROR_BASE = "https://testnet.mirrornode.hedera.com/api/v1"
 
@@ -79,8 +79,8 @@ def test_full_traceability_flow():
     }
 
     # Send to FastAPI (Hedera integration)
-    print(f"🚀 Sending event to {BASE_URL}/events ...")
-    r = requests.post(f"{BASE_URL}/events", json=payload, timeout=30)
+    print(f"🚀 Sending event to {BASE_URL}/epcis/events ...")
+    r = requests.post(f"{BASE_URL}/epcis/events", json=payload, timeout=30)
     assert r.status_code == 200, f"API failed: {r.text}"
 
     response_json = r.json()

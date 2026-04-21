@@ -3,40 +3,58 @@ Fixtures for Guardian integration tests.
 
 Contract: mocked MGS responses are the default; set GUARDIAN_LIVE=1 to hit a real
 MGS tenant (see specs/001-guardian-integration/quickstart.md §7).
-
-Rationale (Constitution §V, §VI): contract tests for `guardian_client.py` run
-against the shape declared in specs/001-guardian-integration/contracts/mgs-boundary.openapi.yaml.
 """
-import os
-import pytest
+from __future__ import annotations
 
+import os
+from typing import Iterator
+
+import httpx
+import pytest
+import respx
 
 pytestmark = pytest.mark.integration
+
+MGS_BASE_URL = os.environ.get("GUARDIAN_API_URL", "https://mgs.test/api/v1")
 
 
 @pytest.fixture
 def mgs_base_url() -> str:
-    return os.environ.get("GUARDIAN_API_URL", "https://mgs.test/api/v1")
+    return MGS_BASE_URL
 
 
 @pytest.fixture
-def mgs_mock(mgs_base_url):
+def mgs_mock() -> Iterator[respx.MockRouter]:
     """
-    Placeholder MGS mock. `/speckit-implement` will replace this with a `respx`
-    mock wired against the endpoints in
-    specs/001-guardian-integration/contracts/mgs-boundary.openapi.yaml.
-
-    Skips the test if the implementation has not landed yet.
+    respx mock for MGS. The fixture installs default success routes for
+    login / session / task polling; individual tests override or add routes
+    inside the `with` block.
     """
-    try:
-        import respx  # noqa: F401
-    except ImportError:
-        pytest.skip("respx not installed yet — add to requirements in /speckit-implement")
+    with respx.mock(base_url=MGS_BASE_URL, assert_all_called=False) as router:
+        router.post("/accounts/login").mock(
+            return_value=httpx.Response(200, json={"accessToken": "test-jwt"})
+        )
+        router.get("/accounts/session").mock(
+            return_value=httpx.Response(
+                200, json={"did": "did:hedera:testnet:abc_0.0.42", "role": "STANDARD_REGISTRY"}
+            )
+        )
+        yield router
 
-    try:
-        from app.service.guardian_client import GuardianClient  # noqa: F401
-    except ImportError:
-        pytest.skip("guardian_client not implemented yet — scheduled for /speckit-implement")
 
-    # Real fixture body lands with the implementation.
-    yield None
+class _FrozenClock:
+    """Monotonic-compatible clock whose advance is driven explicitly by tests."""
+
+    def __init__(self, start: float = 1000.0) -> None:
+        self._now = start
+
+    def __call__(self) -> float:
+        return self._now
+
+    def advance(self, seconds: float) -> None:
+        self._now += seconds
+
+
+@pytest.fixture
+def frozen_clock() -> _FrozenClock:
+    return _FrozenClock()

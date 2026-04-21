@@ -66,6 +66,12 @@ One SR DID per environment (testnet, mainnet). Owns both policies. Issues all VC
 
 Guardian `User` role mapped from Starfish `operator` role. Has its own Hedera DID, registered via `POST /accounts/register` + `PUT /profiles/{username}`. Submits events, receives VCs.
 
+**Consent record**: The FR-015 disclosure acknowledgement is persisted on the Guardian
+profile itself via `PUT /profiles/push/{username}` with payload
+`{"acknowledged_vc_disclosure": "true", "consent_recorded_at": "<ISO-8601>"}`. Starfish
+stores no local copy — the authoritative record is retrievable via
+`GET /profiles/{username}` and flows through to auditors alongside the DID.
+
 ---
 
 ## 2. Rule Source Table

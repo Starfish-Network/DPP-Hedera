@@ -36,7 +36,7 @@ Resolves the four open decisions flagged in [the constitution](../../.specify/me
 |-----------|---------|--------|
 | Network error / timeout | Yes | Transient infra; skip window is appropriate. |
 | HTTP `5xx` | Yes | Server-side fault; transient. |
-| HTTP `429` | Yes, but with separate backoff | Rate-limit; use `Retry-After` if present, ignore for breaker. |
+| HTTP `429` | Yes | Rate-limit; counts toward the 3-strikes breaker like any other failure. `Retry-After` is **not** honored in v1 — the breaker's fixed 60 s window already backs off. Revisit if production traffic shows MGS issuing long `Retry-After` values. |
 | HTTP `503` | Yes | Covered by 5xx. |
 | HTTP `451` (ToS not accepted) | **No** | Config/onboarding problem; retrying helps nothing. Surfaced as `tos_required` via `/guardian/health` and escalated. |
 | HTTP `4xx` other than `429`/`451` (e.g., `400`, `404`, `409`) | **No** | Per-request client-side fault; does not indicate MGS is down. |

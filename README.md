@@ -86,40 +86,85 @@ Endpoint | Method | Description
 ## 🔧 Backend Setup
 **Prerequisites**
 
-- Python 3.10+
+- Python 3.12+
 
 - Docker + Docker Compose
 
 - Hedera Testnet account + Topic ID
 
-- GCP credentials (for KMS key management)
+- AWS/GCP credentials (for KMS key management)
 
-**Environment Variables (.env)**
+- For `/guardian/*` endpoints: a reachable Managed Guardian Service (MGS) + SR credentials
+
+**Environment Variables**
+
+The API loads its env from [`api/.env.dev`](api/.env.dev) (already present in the repo). See [`api/.env.example`](api/.env.example) for the full list. Minimum keys:
+
 ```env
-HEDERA_OPERATOR_ID=0.0.xxxxx
-HEDERA_OPERATOR_KEY=302e02...
+OPERATOR_ID=0.0.xxxxx
+OPERATOR_KEY=302e02...
 TOPIC_ID=0.0.xxxxx
-GCP_KMS_KEY_ID=projects/.../cryptoKeys/traceability-key
+NETWORK=testnet
+CONTRACT_ID=0.0.xxxxx
+
+KMS_PROVIDER=aws
+KMS_KEY_ID=arn:aws:kms:...
+AWS_REGION=eu-west-1
+
+JWT_SECRET=supersecretdevkey
+JWT_ALGORITHM=HS256
+JWT_EXPIRE_MINUTES=60
+
+# Guardian (optional — /guardian/* returns 503 if unset)
+GUARDIAN_API_URL=
+GUARDIAN_SR_USERNAME=
+GUARDIAN_SR_PASSWORD=
 ```
 
-**Run Locally**
+### Run with Docker (recommended)
+
 ```bash
+cd api
 docker-compose up --build
 ```
 
-FastAPI runs at → http://localhost:8000
+The API boots at **http://localhost:8000**, mounted at `/api/v1` (hot-reload enabled via volume mount).
 
-API Docs → http://localhost:8000/docs
+- Swagger: http://localhost:8000/api/v1/swagger
+- ReDoc:   http://localhost:8000/api/v1/redoc
+- Health:  http://localhost:8000/api/v1/health
 
-## 🧪 Testing
-**Unit + Integration Tests**
+### Run locally (without Docker)
+
 ```bash
-pytest -v
+cd api
+python3.12 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+
+env $(grep -v '^#' .env.dev | xargs) \
+  uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-**Integration Tests in Docker**
+### Calling the API from Postman
+
+A ready-to-use collection lives at [`docs/postman/DPP-Hedera.postman_collection.json`](docs/postman/DPP-Hedera.postman_collection.json).
+
+1. Import it into Postman.
+2. `baseUrl` defaults to `http://localhost:8000/api/v1`.
+3. Run **Root → Login** first — its test script stashes the JWT into the `token` collection variable, which every other request uses as a Bearer token.
+4. Set the `event_hash_hex`, `cid`, and `product_id` collection variables for path-parameterised requests.
+
+## 🧪 Testing
+**Unit + contract tests (local)**
 ```bash
-docker-compose -f docker-compose.integration.yml up --build --exit-code-from integration-tests
+cd api && pytest -v
+```
+
+**Integration suite (API + Hedera + Mirror Node, in Docker)**
+```bash
+cd api
+docker-compose up --build --exit-code-from integration-tests
 ```
 
 

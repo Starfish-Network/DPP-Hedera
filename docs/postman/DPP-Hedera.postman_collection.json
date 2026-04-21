@@ -1,0 +1,321 @@
+{
+	"info": {
+		"_postman_id": "a6a1b5a0-8f2e-4d2a-bd7a-111111111111",
+		"name": "DPP-Hedera API",
+		"description": "Traceability API for the DPP-Hedera project (FastAPI, mounted at `/api/v1`).\n\nConfigure the `baseUrl` collection variable (default `http://localhost:8000/api/v1`). After calling `Login`, the returned `access_token` is stored on the collection as `token` and used as a Bearer token by the other requests.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{ "key": "token", "value": "{{token}}", "type": "string" }
+		]
+	},
+	"item": [
+		{
+			"name": "Root",
+			"item": [
+				{
+					"name": "Health",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": { "raw": "{{baseUrl}}/health", "host": ["{{baseUrl}}"], "path": ["health"] }
+					}
+				},
+				{
+					"name": "Login",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"const json = pm.response.json();",
+									"if (json.access_token) {",
+									"    pm.collectionVariables.set('token', json.access_token);",
+									"}"
+								]
+							}
+						}
+					],
+					"request": {
+						"auth": { "type": "noauth" },
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/login?username={{username}}&role={{role}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["login"],
+							"query": [
+								{ "key": "username", "value": "{{username}}" },
+								{ "key": "role", "value": "{{role}}" }
+							]
+						},
+						"description": "Returns a JWT. Token is saved to the `token` collection variable for subsequent requests."
+					}
+				}
+			]
+		},
+		{
+			"name": "Guardian",
+			"item": [
+				{
+					"name": "Health",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": { "raw": "{{baseUrl}}/guardian/health", "host": ["{{baseUrl}}"], "path": ["guardian", "health"] }
+					}
+				},
+				{
+					"name": "Register operator",
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"username\": \"operator-demo\",\n  \"password\": \"Sup3rSecret!\",\n  \"acknowledged_vc_disclosure\": true,\n  \"consent_recorded_at\": \"2026-04-21T10:00:00Z\",\n  \"role\": \"User\"\n}"
+						},
+						"url": { "raw": "{{baseUrl}}/guardian/register", "host": ["{{baseUrl}}"], "path": ["guardian", "register"] },
+						"description": "FR-015: `acknowledged_vc_disclosure` must be `true` and a `consent_recorded_at` timestamp must be supplied."
+					}
+				},
+				{
+					"name": "Resolve DID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/guardian/did/{{username}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["guardian", "did", "{{username}}"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "EPCIS",
+			"item": [
+				{
+					"name": "Events",
+					"item": [
+						{
+							"name": "Create event",
+							"request": {
+								"method": "POST",
+								"header": [ { "key": "Content-Type", "value": "application/json" } ],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"eventType\": \"creating\",\n  \"event_time\": \"2026-04-21T12:00:00.000Z\",\n  \"event_timezone_offset\": \"+01:00\",\n  \"biz_location\": \"9506001112229\",\n  \"quantity_list\": [\n    { \"epc\": \"urn:epc:class:lgtin:9506000.1233.a\", \"quantity\": 12.0, \"unit_of_measurement\": \"kg\" }\n  ]\n}"
+								},
+								"url": { "raw": "{{baseUrl}}/epcis/events", "host": ["{{baseUrl}}"], "path": ["epcis", "events"] }
+							}
+						},
+						{
+							"name": "Attach file",
+							"request": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "formdata",
+									"formdata": [
+										{ "key": "file", "type": "file", "src": [] }
+									]
+								},
+								"url": {
+									"raw": "{{baseUrl}}/epcis/events/{{event_hash_hex}}/attach",
+									"host": ["{{baseUrl}}"],
+									"path": ["epcis", "events", "{{event_hash_hex}}", "attach"]
+								}
+							}
+						},
+						{
+							"name": "List files",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/epcis/events/{{event_hash_hex}}/files",
+									"host": ["{{baseUrl}}"],
+									"path": ["epcis", "events", "{{event_hash_hex}}", "files"]
+								}
+							}
+						},
+						{
+							"name": "Download file",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/epcis/events/{{event_hash_hex}}/files/{{cid}}/download",
+									"host": ["{{baseUrl}}"],
+									"path": ["epcis", "events", "{{event_hash_hex}}", "files", "{{cid}}", "download"]
+								}
+							}
+						}
+					]
+				},
+				{
+					"name": "Compliance",
+					"item": [
+						{
+							"name": "Check & record",
+							"request": {
+								"method": "POST",
+								"header": [ { "key": "Content-Type", "value": "application/json" } ],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"eventType\": \"creating\",\n  \"event_time\": \"2026-04-21T12:00:00.000Z\",\n  \"event_timezone_offset\": \"+01:00\",\n  \"biz_location\": \"9506001112229\",\n  \"quantity_list\": [\n    { \"epc\": \"urn:epc:class:lgtin:9506000.1233.a\", \"quantity\": 12.0, \"unit_of_measurement\": \"kg\" }\n  ]\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/epcis/compliance/check",
+									"host": ["{{baseUrl}}"],
+									"path": ["epcis", "compliance", "check"]
+								}
+							}
+						},
+						{
+							"name": "Status",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/epcis/compliance/status/{{event_hash_hex}}",
+									"host": ["{{baseUrl}}"],
+									"path": ["epcis", "compliance", "status", "{{event_hash_hex}}"]
+								}
+							}
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "GDST",
+			"item": [
+				{
+					"name": "Events",
+					"item": [
+						{
+							"name": "Create event",
+							"request": {
+								"method": "POST",
+								"header": [ { "key": "Content-Type", "value": "application/json" } ],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"gdst_event_type\": \"Fishing\",\n  \"who\": {\n    \"product_owner\": \"Starfish Co.\",\n    \"information_provider\": \"Starfish Co.\"\n  },\n  \"what\": {\n    \"species\": \"COD\",\n    \"product_form\": \"whole\",\n    \"linking_kde\": \"BATCH-0001\",\n    \"quantity\": 120.5,\n    \"unit_of_measure\": \"KGM\"\n  },\n  \"where\": {\n    \"event_read_point\": { \"latitude\": 63.5, \"longitude\": -18.2 },\n    \"catch_area\": \"27\",\n    \"product_origin\": \"IS\"\n  },\n  \"when\": {\n    \"event_id\": \"evt-0001\",\n    \"event_datetime\": \"2026-04-21T08:00:00Z\",\n    \"timezone\": \"UTC\",\n    \"capture_date\": \"2026-04-21T07:30:00Z\"\n  },\n  \"iuu\": {\n    \"fishing_authorization\": \"LIC-IS-123\",\n    \"gear_type\": \"longline\"\n  }\n}"
+								},
+								"url": { "raw": "{{baseUrl}}/gdst/events", "host": ["{{baseUrl}}"], "path": ["gdst", "events"] }
+							}
+						},
+						{
+							"name": "Attach file",
+							"request": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "formdata",
+									"formdata": [
+										{ "key": "file", "type": "file", "src": [] }
+									]
+								},
+								"url": {
+									"raw": "{{baseUrl}}/gdst/events/{{event_hash_hex}}/attach",
+									"host": ["{{baseUrl}}"],
+									"path": ["gdst", "events", "{{event_hash_hex}}", "attach"]
+								}
+							}
+						},
+						{
+							"name": "List files",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/gdst/events/{{event_hash_hex}}/files",
+									"host": ["{{baseUrl}}"],
+									"path": ["gdst", "events", "{{event_hash_hex}}", "files"]
+								}
+							}
+						},
+						{
+							"name": "Download file",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/gdst/events/{{event_hash_hex}}/files/{{cid}}/download",
+									"host": ["{{baseUrl}}"],
+									"path": ["gdst", "events", "{{event_hash_hex}}", "files", "{{cid}}", "download"]
+								}
+							}
+						}
+					]
+				},
+				{
+					"name": "Compliance",
+					"item": [
+						{
+							"name": "Check & record",
+							"request": {
+								"method": "POST",
+								"header": [ { "key": "Content-Type", "value": "application/json" } ],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"gdst_event_type\": \"Fishing\",\n  \"who\": { \"product_owner\": \"Starfish Co.\" },\n  \"what\": { \"species\": \"COD\", \"linking_kde\": \"BATCH-0001\", \"quantity\": 120.5, \"unit_of_measure\": \"KGM\" },\n  \"where\": { \"event_read_point\": { \"latitude\": 63.5, \"longitude\": -18.2 }, \"catch_area\": \"27\" },\n  \"when\": { \"event_id\": \"evt-0001\", \"event_datetime\": \"2026-04-21T08:00:00Z\" }\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/gdst/compliance/check",
+									"host": ["{{baseUrl}}"],
+									"path": ["gdst", "compliance", "check"]
+								}
+							}
+						},
+						{
+							"name": "Status",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/gdst/compliance/status/{{event_hash_hex}}",
+									"host": ["{{baseUrl}}"],
+									"path": ["gdst", "compliance", "status", "{{event_hash_hex}}"]
+								}
+							}
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "Traceability",
+			"item": [
+				{
+					"name": "Trace graph",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/trace/{{product_id}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["trace", "{{product_id}}"]
+						}
+					}
+				}
+			]
+		}
+	],
+	"variable": [
+		{ "key": "baseUrl", "value": "http://localhost:8000/api/v1" },
+		{ "key": "username", "value": "operator-demo" },
+		{ "key": "role", "value": "reader" },
+		{ "key": "token", "value": "" },
+		{ "key": "event_hash_hex", "value": "" },
+		{ "key": "cid", "value": "" },
+		{ "key": "product_id", "value": "urn:epc:class:lgtin:9506000.1233.a" }
+	]
+}
