@@ -12,6 +12,12 @@ from datetime import datetime, timezone
 from typing import Any, Callable, Literal
 
 import httpx
+from tenacity import (
+    AsyncRetrying,
+    retry_if_exception_type,
+    stop_after_delay,
+    wait_exponential,
+)
 
 from app.core.config import settings
 
@@ -38,7 +44,7 @@ class GuardianNotFound(GuardianError):
 
 
 class GuardianConflict(GuardianError):
-    """MGS 409 outside the register_user idempotent path."""
+    """MGS 409."""
 
 
 class GuardianClientError(GuardianError):
@@ -151,13 +157,6 @@ class TaskResult:
     status: Literal["PENDING", "PROCESSING", "COMPLETED", "FAILED"]
     result: Any = None
     error: str | None = None
-
-
-@dataclass
-class UserRecord:
-    username: str
-    role: str
-    did: str | None
 
 
 class GuardianClient:
@@ -276,69 +275,11 @@ class GuardianClient:
         # callers should prefer `circuit_status()` / `last_failure_at`.
         return self._breaker
 
-    async def register_user(
-        self,
-        username: str,
-        password: str,
-        role: Literal["User", "STANDARD_REGISTRY"] = "User",
-    ) -> UserRecord:
-        r = await self._call_with_refresh(
-            "POST",
-            "/accounts/register",
-            json={"username": username, "password": password, "role": role},
-        )
-        if r.status_code == 409:
-            profile = await self._get_profile_raw(username)
-            return UserRecord(username=username, role=role, did=profile.get("did"))
-        err = self._classify(r)
-        if err is not None:
-            raise err
-        data = r.json()
-        return UserRecord(
-            username=data.get("username", username),
-            role=data.get("role", role),
-            did=data.get("did"),
-        )
-
-    async def _get_profile_raw(self, username: str) -> dict[str, Any]:
-        r = await self._call_with_refresh("GET", f"/profiles/{username}")
-        err = self._classify(r)
-        if err is not None:
-            raise err
-        return r.json()
-
-    async def get_user_did(self, username: str) -> str:
-        profile = await self._get_profile_raw(username)
-        did = profile.get("did")
-        if not did:
-            raise GuardianNotFound(f"profile {username} has no DID")
-        return did
-
-    async def set_user_credentials(
-        self, username: str, credentials: dict[str, str]
-    ) -> TaskHandle:
-        r = await self._call_with_refresh(
-            "PUT",
-            f"/profiles/push/{username}",
-            json=credentials,
-        )
-        err = self._classify(r)
-        if err is not None:
-            raise err
-        return TaskHandle(taskId=r.json()["taskId"])
-
     # --- Task polling ---
 
     async def wait_for_task(
         self, task_id: str, *, timeout: float = 120.0
     ) -> TaskResult:
-        from tenacity import (
-            AsyncRetrying,
-            retry_if_exception_type,
-            stop_after_delay,
-            wait_exponential,
-        )
-
         async def _poll_once() -> TaskResult:
             r = await self._call_with_refresh("GET", f"/tasks/{task_id}")
             err = self._classify(r)

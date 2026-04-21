@@ -16,8 +16,8 @@ Integrate two new Guardian policies (GDST 1.2, FSMA 204) with the existing FastA
 **Target Platform**: Linux server (FastAPI backend); `.policy` exports target any Guardian 2.x-compatible runtime including self-hosted.
 **Project Type**: Web-service extension (new service module + new routes on existing FastAPI app; no frontend changes).
 **Performance Goals**: `/events` p95 latency must not regress by more than 5% with Guardian enabled (SC-003). `GET /guardian/*/vc/{event_hash}` returns `200` within 30 s of submission for 95% of events; the hard ceiling is 5 min before the event is flagged `manual_review` (SC-007). Guardian submit is async/fire-and-forget on the hot path; VC retrieval is on-demand.
-**Constraints**: Guardian calls must never block HCS recording (Constitution §IV). `.policy` exports must be self-contained (Constitution §II). VCs are immutable once issued — corrections are append-only superseding credentials, never mutations (spec §FR-014). `credentialSubject` embeds the full event payload verbatim (FR-015); there is no v1 PII-minimization layer, and operator consent MUST be captured at onboarding.
-**Scale/Scope**: Single MGS tenant initially. Two policies. 13 schemas total. ~5 new API endpoints under `/guardian/*`, plus the optional `?history=true` query on the VC-retrieval endpoints (FR-007). New service module (`guardian_client.py`), schema mapper (`schema_mapper.py`), config additions. No reconciler worker and no backlog table in v1 — breaker-skipped events are log-only (FR-006).
+**Constraints**: Guardian calls must never block HCS recording (Constitution §IV). `.policy` exports must be self-contained (Constitution §II). VCs are immutable once issued — corrections are append-only superseding credentials, never mutations (spec §FR-014). `credentialSubject` embeds the full event payload verbatim (FR-015); there is no v1 PII-minimization layer. Operator onboarding — including consent capture for FR-015 — is **out of scope for v1** and is handled out-of-band by the deployer via the MGS portal and a local signed consent record (see deployment runbook).
+**Scale/Scope**: Single MGS tenant initially. Two policies. 13 schemas total. 3 new API endpoints under `/guardian/*` (`/health`, `/gdst/vc/{event_hash}`, `/fsma/vc/{event_hash}`), plus the optional `?history=true` query on the VC-retrieval endpoints (FR-007). Operator onboarding endpoints are deferred to v2. New service module (`guardian_client.py`), schema mapper (`schema_mapper.py`), config additions. No reconciler worker and no backlog table in v1 — breaker-skipped events are log-only (FR-006).
 
 ## Constitution Check
 
@@ -116,7 +116,7 @@ api/
 │   ├── routes/
 │   │   ├── guardian/
 │   │   │   ├── __init__.py                      # NEW
-│   │   │   ├── identity.py                      # NEW — /register, /did, /health
+│   │   │   ├── identity.py                      # NEW — /health (operator onboarding deferred to v2)
 │   │   │   └── policy.py                        # NEW — /gdst/vc, /fsma/vc
 │   │   ├── gdst/events.py                       # MODIFIED — submit to MGS after HCS
 │   │   └── epcis/compliance.py                  # MODIFIED — submit to MGS after HCS

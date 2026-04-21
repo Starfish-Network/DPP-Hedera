@@ -67,33 +67,6 @@
 						"header": [],
 						"url": { "raw": "{{baseUrl}}/guardian/health", "host": ["{{baseUrl}}"], "path": ["guardian", "health"] }
 					}
-				},
-				{
-					"name": "Register operator",
-					"request": {
-						"method": "POST",
-						"header": [
-							{ "key": "Content-Type", "value": "application/json" }
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"username\": \"operator-demo\",\n  \"password\": \"Sup3rSecret!\",\n  \"acknowledged_vc_disclosure\": true,\n  \"consent_recorded_at\": \"2026-04-21T10:00:00Z\",\n  \"role\": \"User\"\n}"
-						},
-						"url": { "raw": "{{baseUrl}}/guardian/register", "host": ["{{baseUrl}}"], "path": ["guardian", "register"] },
-						"description": "FR-015: `acknowledged_vc_disclosure` must be `true` and a `consent_recorded_at` timestamp must be supplied."
-					}
-				},
-				{
-					"name": "Resolve DID",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{baseUrl}}/guardian/did/{{username}}",
-							"host": ["{{baseUrl}}"],
-							"path": ["guardian", "did", "{{username}}"]
-						}
-					}
 				}
 			]
 		},

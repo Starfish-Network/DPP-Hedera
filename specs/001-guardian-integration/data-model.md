@@ -64,13 +64,9 @@ One SR DID per environment (testnet, mainnet). Owns both policies. Issues all VC
 
 ### Operator
 
-Guardian `User` role mapped from Starfish `operator` role. Has its own Hedera DID, registered via `POST /accounts/register` + `PUT /profiles/{username}`. Submits events, receives VCs.
+Guardian `User` role mapped from Starfish `operator` role. Has its own Hedera DID. In **v1**, operators are pre-provisioned directly in the MGS portal by the deployer before any event is submitted — there are no Starfish API calls for onboarding (spec §FR-007 / Assumptions). The operator's DID, once activated in the portal, is what Starfish references when submitting events on their behalf. v2 will add self-service endpoints.
 
-**Consent record**: The FR-015 disclosure acknowledgement is persisted on the Guardian
-profile itself via `PUT /profiles/push/{username}` with payload
-`{"acknowledged_vc_disclosure": "true", "consent_recorded_at": "<ISO-8601>"}`. Starfish
-stores no local copy — the authoritative record is retrievable via
-`GET /profiles/{username}` and flows through to auditors alongside the DID.
+**Consent record (v1, out-of-band)**: The FR-015 disclosure acknowledgement is captured **outside the Starfish API** by the deployer before the operator is provisioned in the MGS portal. Concretely, the deployer retains a signed local record (e.g., a counter-signed PDF or an entry in a secured consent log keyed on the operator's DID) containing the acknowledgement text and an ISO-8601 timestamp. Starfish runs no consent API, stores no consent field, and makes no programmatic assertion that consent was captured — this is a deployment-runbook obligation. If consent capture needs to become programmatic, it will be added in v2 alongside the operator-onboarding endpoints.
 
 ---
 

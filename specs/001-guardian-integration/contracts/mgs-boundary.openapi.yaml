@@ -12,7 +12,7 @@ servers:
   - url: "{guardianApiUrl}"
     variables:
       guardianApiUrl:
-        default: https://example.mgs.hedera.com/api/v1
+        default: https://guardianservice.app/api/v1
         description: From GUARDIAN_API_URL
 security:
   - bearerAuth: []
@@ -57,72 +57,10 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "451": { $ref: "#/components/responses/ToSRequired" }
 
-  /accounts/register:
-    post:
-      summary: Register a user under the tenant.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [username, password, role]
-              properties:
-                username: { type: string }
-                password: { type: string }
-                role:
-                  type: string
-                  enum: [User, STANDARD_REGISTRY]
-      responses:
-        "200": { $ref: "#/components/responses/UserRecord" }
-        "409":
-          description: Username exists (client resolves existing DID)
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/Error" }
-
-  /profiles/{username}:
-    parameters:
-      - $ref: "#/components/parameters/Username"
-    get:
-      summary: Resolve user profile (includes DID once activated).
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/Profile" }
-        "404": { $ref: "#/components/responses/NotFound" }
-    put:
-      summary: Set Hedera credentials synchronously (activates DID).
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: "#/components/schemas/HederaCredentials" }
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/Profile" }
-
-  /profiles/push/{username}:
-    parameters:
-      - $ref: "#/components/parameters/Username"
-    put:
-      summary: Set Hedera credentials asynchronously (returns a task).
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: "#/components/schemas/HederaCredentials" }
-      responses:
-        "202":
-          description: Accepted
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/TaskHandle" }
+  # Operator onboarding endpoints (/accounts/register, /profiles/{username},
+  # /profiles/push/{username}) are intentionally omitted for v1 — operators are
+  # pre-provisioned directly in the MGS portal (spec §FR-007 / Assumptions).
+  # They will be added back in the v2 spec pass.
 
   /schemas:
     post:
@@ -266,11 +204,6 @@ components:
       bearerFormat: JWT
 
   parameters:
-    Username:
-      in: path
-      name: username
-      required: true
-      schema: { type: string }
     Id:
       in: path
       name: id
@@ -284,20 +217,6 @@ components:
         did: { type: string }
         role: { type: string }
         tenantId: { type: string }
-
-    HederaCredentials:
-      type: object
-      required: [hederaAccountId, hederaPrivateKey]
-      properties:
-        hederaAccountId: { type: string, example: "0.0.12345" }
-        hederaPrivateKey: { type: string }
-
-    Profile:
-      type: object
-      properties:
-        username: { type: string }
-        did: { type: string, nullable: true }
-        role: { type: string }
 
     SchemaRecord:
       type: object
@@ -347,13 +266,6 @@ components:
         proof:
           type: object
 
-    UserRecord:
-      type: object
-      properties:
-        username: { type: string }
-        role: { type: string }
-        did: { type: string, nullable: true }
-
     Error:
       type: object
       properties:
@@ -376,8 +288,3 @@ components:
     ToSRequired:
       description: Terms of Service must be accepted in the MGS portal.
       content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
-    UserRecord:
-      description: User record
-      content:
-        application/json:
-          schema: { $ref: "#/components/schemas/UserRecord" }

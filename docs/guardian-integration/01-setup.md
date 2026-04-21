@@ -18,14 +18,14 @@ One-time external setup, done in the MGS portal:
 | 4 | Set Hedera credentials → activates SR DID | `PUT /profiles/{username}` (or `/push/{username}` for async) |
 | 5 | Capture base URL + SR credentials for our config | — |
 
-> **TODO:** MGS tenant not yet provisioned. Replace `<mgs-tenant>` placeholder in the config block once available.
+> MGS tenant provisioned at <https://guardianservice.app>. Your tenant ID appears in the portal URL (`/user-tenants/<tenantId>`) — keep it in your local env, not in this repo.
 
 ---
 
 ## 2. Configuration: `api/app/core/config.py`
 
 ```python
-GUARDIAN_API_URL: str = "https://<mgs-tenant>.hedera.com/api/v1"  # provided by MGS
+GUARDIAN_API_URL: str = "https://guardianservice.app/api/v1"  # MGS REST base
 GUARDIAN_SR_USERNAME: str = ""
 GUARDIAN_SR_PASSWORD: str = ""
 ```
@@ -38,9 +38,6 @@ GUARDIAN_SR_PASSWORD: str = ""
 |--------|---------|---------|
 | `login()` | `POST /accounts/login` | Authenticate (returns JWT) |
 | `get_health()` | `GET /accounts/session` | Validate session / health check |
-| `register_user()` | `POST /accounts/register` | Create user under tenant |
-| `get_user_did()` | `GET /profiles/{username}` | Resolve DID |
-| `set_user_credentials()` | `PUT /profiles/{username}` | Activate user DID with Hedera credentials |
 | `create_schema()` | `POST /schemas` | Create schema (SR only) |
 | `publish_schema()` | `PUT /schemas/{id}/publish` | Publish schema (use `/push/` for async) |
 | `create_policy()` | `POST /policies` | Create policy (SR only) |
@@ -62,18 +59,21 @@ GUARDIAN_SR_PASSWORD: str = ""
 
 The SR is the root authority that owns policies and issues VCs. Registered once during MGS provisioning (Step 3 above). The SR's DID becomes the `issuer` on all VCs — this is the trust anchor.
 
-### User Registration
+### Operators (v1)
+
+Operator onboarding is **out of scope for v1** (spec §FR-007 / Assumptions). The deployer pre-provisions each operator directly in the MGS portal:
+
+1. Create a `User` account.
+2. Set Hedera credentials → MGS activates the DID server-side (no separate "approve" call).
+3. Capture signed consent for the FR-015 full-payload VC disclosure posture out-of-band (e.g., counter-signed PDF, secured consent log). v1 ships no consent endpoint.
+4. Record the operator's DID in the deployment runbook.
+
+v2 will add FastAPI self-service endpoints (`POST /guardian/register`, `GET /guardian/did/{username}`) and a programmatic consent flow. Until then, the FastAPI layer references operator DIDs but does not create or mutate them.
 
 | Existing Role | Guardian Role | Purpose |
 |---------------|---------------|---------|
 | `admin` | Standard Registry | Owns policies |
-| `operator` | User | Submits events, receives VCs |
-
-```
-Operator registers → SR sets credentials → DID activated on Hedera
-```
-
-MGS activates the DID server-side once Hedera credentials are set via `PUT /profiles/{username}` — there is no separate "approve" call. Once active, the login JWT includes a `did` claim (resolved at login, cached in token).
+| `operator` | User | Submits events, receives VCs (provisioned in the MGS portal for v1) |
 
 ---
 
@@ -84,12 +84,12 @@ Base path: `/api/v1/guardian` — JWT auth required.
 | Method | Path | Auth | Purpose |
 |--------|------|------|---------|
 | `GET` | `/guardian/health` | Any | Health check (proxies `GET /accounts/session`) |
-| `POST` | `/guardian/register` | Any | Register user via MGS |
-| `GET` | `/guardian/did/{username}` | Any | Resolve DID |
 | `GET` | `/guardian/gdst/vc/{event_hash}` | Any | Retrieve GDST VC |
 | `GET` | `/guardian/fsma/vc/{event_hash}` | Any | Retrieve FSMA VC |
 
-Error codes: `404` (not found), `409` (username exists), `451` (MGS ToS not accepted), `503` (MGS unavailable).
+Error codes: `404` (not found), `451` (MGS ToS not accepted), `503` (MGS unavailable).
+
+Operator onboarding endpoints (`POST /guardian/register`, `GET /guardian/did/{username}`) are deferred to v2.
 
 ---
 

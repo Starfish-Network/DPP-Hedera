@@ -21,7 +21,7 @@ In the MGS portal:
 3. Register the Standard Registry: `POST /accounts/register` with `role: STANDARD_REGISTRY`.
 4. Set Hedera credentials (activates the SR DID): `PUT /profiles/{sr-username}`.
 5. Capture:
-   - `GUARDIAN_API_URL` = `https://<mgs-tenant>.hedera.com/api/v1`
+   - `GUARDIAN_API_URL` = `https://guardianservice.app/api/v1`
    - `GUARDIAN_SR_USERNAME`, `GUARDIAN_SR_PASSWORD`
    - SR DID (visible via `GET /profiles/{sr-username}`)
 
@@ -33,7 +33,7 @@ Edit `api/app/core/config.py` (or the `.env` layered on top, per existing conven
 
 ```
 GUARDIAN_NETWORK=testnet
-GUARDIAN_API_URL=https://<mgs-tenant>.hedera.com/api/v1
+GUARDIAN_API_URL=https://guardianservice.app/api/v1
 GUARDIAN_SR_USERNAME=<sr-username>
 GUARDIAN_SR_PASSWORD=<sr-password>
 GUARDIAN_GDST_POLICY_ID=               # filled in after step 4
@@ -69,14 +69,15 @@ guardian_client.export_policy(fsma_policy["id"], "schemas/policies/fsma-204-food
 
 Record `GUARDIAN_GDST_POLICY_ID`, `GUARDIAN_FSMA_POLICY_ID`, and the intake block tags in the env.
 
-## 5. Register an operator
+## 5. Pre-provision operators (out-of-band — v1)
 
-```python
-resp = guardian_client.register_user(username="op1", role="User")     # POST /accounts/register; handles 409 by resolving existing DID
-guardian_client.set_user_credentials("op1", hedera_credentials)       # PUT /profiles/op1 — activates DID
-```
+Operator onboarding is **out of scope for v1**. Provision each operator directly in the MGS portal before running any event flow:
 
-Verify: `guardian_client.get_user_did("op1")` returns `did:hedera:testnet:...`.
+1. Log into the MGS portal as the SR.
+2. Create a `User` account per operator, set their Hedera credentials to activate the DID, and record the resulting `did:hedera:testnet:...` in your deployment-runbook operator registry.
+3. Capture signed consent for the FR-015 full-payload VC disclosure posture before issuing any event on behalf of that operator. Retain the signed record locally (e.g., a counter-signed PDF or an entry in a secured consent log). v1 does not ship an in-product consent prompt.
+
+v2 will add FastAPI endpoints for operator self-service registration (`POST /guardian/register`) and DID resolution (`GET /guardian/did/{username}`); until then, these endpoints do not exist and the `guardian_client` has no onboarding methods.
 
 ## 6. Submit a sample event end-to-end
 

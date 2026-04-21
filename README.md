@@ -137,7 +137,7 @@ TL;DR of what the keys mean:
 | Key | Source |
 |-----|--------|
 | `GUARDIAN_NETWORK` | Must match `NETWORK` (`testnet` or `mainnet`). Enforced by [`api/app/core/config.py`](api/app/core/config.py). |
-| `GUARDIAN_API_URL` | Your MGS tenant's REST base, e.g. `https://<tenant>.hedera.com/api/v1`. |
+| `GUARDIAN_API_URL` | MGS REST base: `https://guardianservice.app/api/v1`. |
 | `GUARDIAN_SR_USERNAME` / `_SR_PASSWORD` | Standard Registry credentials created via `POST /accounts/register` with `role: STANDARD_REGISTRY`. |
 | `GUARDIAN_GDST_POLICY_ID` / `GUARDIAN_FSMA_POLICY_ID` | Returned after you publish the bundled policies (quickstart §4). |
 | `GUARDIAN_GDST_INTAKE_BLOCK_TAG` / `GUARDIAN_FSMA_INTAKE_BLOCK_TAG` | Intake block tag from each published policy. |

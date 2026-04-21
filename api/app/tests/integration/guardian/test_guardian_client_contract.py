@@ -52,20 +52,20 @@ def test_login_returns_bearer_token_and_refreshes_on_401(mgs_mock: respx.MockRou
             httpx.Response(200, json={"accessToken": "jwt-2"}),
         ]
     )
-    mgs_mock.get("/profiles/alice").mock(
+    mgs_mock.get("/tasks/task-1").mock(
         side_effect=[
             httpx.Response(401, json={"code": "expired"}),
-            httpx.Response(200, json={"username": "alice", "did": "did:hedera:testnet:abc_0.0.42"}),
+            httpx.Response(200, json={"taskId": "task-1", "status": "COMPLETED", "result": {}}),
         ]
     )
 
-    async def scenario() -> str:
+    async def scenario():
         client = _make_client()
         await client.login()
-        return await client.get_user_did("alice")
+        return await client.wait_for_task("task-1", timeout=1.0)
 
-    did = _run(scenario())
-    assert did == "did:hedera:testnet:abc_0.0.42"
+    result = _run(scenario())
+    assert result.status == "COMPLETED"
 
 
 def test_451_surfaces_as_tos_required_and_sets_breaker(mgs_mock: respx.MockRouter):
@@ -81,26 +81,6 @@ def test_451_surfaces_as_tos_required_and_sets_breaker(mgs_mock: respx.MockRoute
 
     breaker = _run(scenario())
     assert breaker.state == "tos_required"
-
-
-def test_register_user_is_idempotent_on_409(mgs_mock: respx.MockRouter):
-    mgs_mock.post("/accounts/register").mock(
-        return_value=httpx.Response(409, json={"code": "exists"})
-    )
-    mgs_mock.get("/profiles/bob").mock(
-        return_value=httpx.Response(
-            200, json={"username": "bob", "did": "did:hedera:testnet:xyz_0.0.77", "role": "User"}
-        )
-    )
-
-    async def scenario():
-        client = _make_client()
-        await client.login()
-        return await client.register_user("bob", "pwd")
-
-    record = _run(scenario())
-    assert record.did == "did:hedera:testnet:xyz_0.0.77"
-    assert record.username == "bob"
 
 
 def test_wait_for_task_times_out(mgs_mock: respx.MockRouter):

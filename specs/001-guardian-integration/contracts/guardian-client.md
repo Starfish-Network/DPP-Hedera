@@ -48,26 +48,9 @@ async def get_health(self) -> HealthStatus
 
 ## Identity
 
-```python
-async def register_user(self, username: str, role: Literal["User", "STANDARD_REGISTRY"] = "User") -> UserRecord
-```
+Operator onboarding (user registration, credential activation, DID resolution) is **out of scope for v1** (spec §FR-007 / Assumptions). Operators are pre-provisioned directly in the MGS portal before any event is submitted, so the client exposes no onboarding methods in v1. `login()` / `get_health()` above are the only identity-adjacent calls and operate on the SR credentials.
 
-- **MGS**: `POST /accounts/register`.
-- **409 handling**: MUST NOT raise. Resolves existing DID via `GET /profiles/{username}` and returns the `UserRecord` unchanged — idempotent by design (FR-008).
-
-```python
-async def set_user_credentials(self, username: str, credentials: HederaCredentials) -> TaskHandle
-```
-
-- **MGS**: `PUT /profiles/push/{username}` (async).
-- **Returns**: `TaskHandle`; caller awaits `wait_for_task`.
-
-```python
-async def get_user_did(self, username: str) -> str
-```
-
-- **MGS**: `GET /profiles/{username}` → `profile.did`.
-- **Errors**: `GuardianNotFound` on `404`.
+v2 will reintroduce `register_user`, `set_user_credentials`, and `get_user_did` backed by `POST /accounts/register`, `PUT /profiles/push/{username}`, and `GET /profiles/{username}` respectively. These paths are intentionally absent from [mgs-boundary.openapi.yaml](mgs-boundary.openapi.yaml) for v1.
 
 ---
 
@@ -172,7 +155,7 @@ def circuit_status(self) -> Literal["closed", "open", "half_open", "tos_required
 | `GuardianAuthError` | MGS rejects credentials | `503` (treated as MGS config problem) |
 | `GuardianToSRequired` | MGS `451` | `503` with `detail: "tos_required"` |
 | `GuardianNotFound` | MGS `404` on identity/profile | `404` |
-| `GuardianConflict` | MGS `409` (other than register_user idempotent case) | `409` |
+| `GuardianConflict` | MGS `409` | `409` |
 | `GuardianClientError` | MGS `4xx` not covered above | `400` with upstream detail |
 | `GuardianUnavailable` | Network, 5xx, 429 | `503` |
 | `GuardianBreakerOpen` | Breaker open at call time | `503` with `detail: "breaker_open"` — DOES NOT retry |
@@ -185,7 +168,6 @@ def circuit_status(self) -> Literal["closed", "open", "half_open", "tos_required
 - Breaker opens after exactly 3 consecutive "counting" failures.
 - Breaker stays open for 60 s from the last failure.
 - After 60 s, next call is a probe: success → closed, failure → 60 s window restarts (ONE failure, not another three).
-- `register_user` on an existing username returns the existing DID and does not raise.
 - `submit_document` does not retry inline — there is no v1 reconciliation worker (spec §FR-006). Breaker-skipped submissions emit a structured WARN log (`event_hash`, `operator_did`, `mgs_error_class`, `breaker_opened_at`) and are replayable only by manual operator re-submission of the idempotent `/events` call.
 - **Idempotency (FR-004)**: callers of `submit_document` MUST first consult `get_vc_by_event_hash` (or a local cache keyed on `event_hash`) and short-circuit if a VC already exists. A duplicate submission does not call MGS and does not increment the breaker counter.
 - **Immutable VCs (FR-014)**: `submit_document` never mutates a prior VC. A correction is a fresh `submit_document` whose payload carries `{"complianceStatus": "superseded", "supersedes": "<prior eventHash>"}`; the resulting chain is retrievable via `get_vc_by_event_hash(..., history=True)`.
