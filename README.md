@@ -115,11 +115,47 @@ JWT_SECRET=supersecretdevkey
 JWT_ALGORITHM=HS256
 JWT_EXPIRE_MINUTES=60
 
-# Guardian (optional — /guardian/* returns 503 if unset)
+# Guardian (optional — /guardian/* returns 503 if unset; see below)
+GUARDIAN_NETWORK=testnet
 GUARDIAN_API_URL=
 GUARDIAN_SR_USERNAME=
 GUARDIAN_SR_PASSWORD=
+GUARDIAN_GDST_POLICY_ID=
+GUARDIAN_FSMA_POLICY_ID=
+GUARDIAN_GDST_INTAKE_BLOCK_TAG=
+GUARDIAN_FSMA_INTAKE_BLOCK_TAG=
 ```
+
+### 🛡️ Configuring Guardian (MGS)
+
+Guardian (Managed Guardian Service) is used to issue Verifiable Credentials for each compliance event. It's optional — the core `/epcis/*`, `/gdst/*`, and `/trace/*` endpoints work without it — but `/api/v1/guardian/*` will return `503` until these are set.
+
+Canonical runbook: [specs/001-guardian-integration/quickstart.md](specs/001-guardian-integration/quickstart.md).
+
+TL;DR of what the keys mean:
+
+| Key | Source |
+|-----|--------|
+| `GUARDIAN_NETWORK` | Must match `NETWORK` (`testnet` or `mainnet`). Enforced by [`api/app/core/config.py`](api/app/core/config.py). |
+| `GUARDIAN_API_URL` | Your MGS tenant's REST base, e.g. `https://<tenant>.hedera.com/api/v1`. |
+| `GUARDIAN_SR_USERNAME` / `_SR_PASSWORD` | Standard Registry credentials created via `POST /accounts/register` with `role: STANDARD_REGISTRY`. |
+| `GUARDIAN_GDST_POLICY_ID` / `GUARDIAN_FSMA_POLICY_ID` | Returned after you publish the bundled policies (quickstart §4). |
+| `GUARDIAN_GDST_INTAKE_BLOCK_TAG` / `GUARDIAN_FSMA_INTAKE_BLOCK_TAG` | Intake block tag from each published policy. |
+
+High-level provisioning flow (full steps in the quickstart):
+
+1. Create an MGS account and accept the Terms of Service (before acceptance, every call returns `451`).
+2. `PUT /tenants/user` to provision the tenant.
+3. `POST /accounts/register` with `role: STANDARD_REGISTRY`, then `PUT /profiles/{sr-username}` to activate the SR DID.
+4. Publish the GDST and FSMA schemas, then create + publish the policies. Capture the policy IDs and intake block tags.
+5. Fill the env keys above, restart the API, and verify with:
+
+   ```bash
+   curl http://localhost:8000/api/v1/guardian/health
+   ```
+
+   Healthy: `{ "status": "ok", "breaker": "closed", ... }`.
+   Other states: `tos_required`, `breaker_open`, `unavailable` — see the [troubleshooting table](specs/001-guardian-integration/quickstart.md#troubleshooting).
 
 ### Run with Docker (recommended)
 
