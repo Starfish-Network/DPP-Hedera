@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "#GDSTProcessingEvent&1.0.0",
+  "title": "GDST Processing Event (CTE)",
+  "description": "Source Pydantic: api/app/models/gdst/processing.py::ProcessingEvent. Rules: GDST_COMMON_001-004, GDST_PROCESSING_001.",
+  "type": "object",
+  "required": ["gdst_event_type", "what", "when", "where"],
+  "properties": {
+    "gdst_event_type": { "const": "Processing" },
+    "who": {
+      "type": "object",
+      "properties": {
+        "product_owner": { "type": "string" },
+        "information_provider": { "type": "string" }
+      }
+    },
+    "what": {
+      "type": "object",
+      "required": ["species", "quantity", "unit_of_measure"],
+      "properties": {
+        "species": { "type": "string", "pattern": "^[A-Z]{3}$" },
+        "quantity": { "type": "number", "exclusiveMinimum": 0 },
+        "unit_of_measure": { "type": "string", "enum": ["KGM", "TNE", "LBR", "EA"] },
+        "product_form": { "type": "string" },
+        "linking_kde": { "type": "string" }
+      }
+    },
+    "where": {
+      "type": "object",
+      "properties": {
+        "source_location": { "type": "string" },
+        "destination_location": { "type": "string" }
+      }
+    },
+    "when": {
+      "type": "object",
+      "required": ["event_id", "event_datetime", "production_date"],
+      "properties": {
+        "event_id": { "type": "string", "minLength": 6, "maxLength": 64 },
+        "event_datetime": { "type": "string", "format": "date-time" },
+        "production_date": { "type": "string", "format": "date-time" },
+        "expiration_date": { "type": "string", "format": "date-time" }
+      }
+    },
+    "iuu": {
+      "type": "object",
+      "properties": {
+        "production_method": { "type": "string" },
+        "chain_of_custody_certification": { "type": "string" }
+      }
+    }
+  }
+}

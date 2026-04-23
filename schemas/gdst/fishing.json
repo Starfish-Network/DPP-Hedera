@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "#GDSTFishingEvent&1.0.0",
+  "title": "GDST Fishing Event (CTE)",
+  "description": "Source Pydantic: api/app/models/gdst/fishing.py::FishingEvent. Rules: GDST_COMMON_001-004, GDST_FISHING_001-003.",
+  "type": "object",
+  "required": ["gdst_event_type", "what", "when", "where", "iuu", "vessel"],
+  "properties": {
+    "gdst_event_type": { "const": "Fishing" },
+    "who": {
+      "type": "object",
+      "properties": {
+        "product_owner": { "type": "string" },
+        "information_provider": { "type": "string" }
+      }
+    },
+    "what": {
+      "type": "object",
+      "required": ["species", "quantity", "unit_of_measure"],
+      "properties": {
+        "species": { "type": "string", "pattern": "^[A-Z]{3}$" },
+        "product_form": { "type": "string" },
+        "item_sku_upc_gtin": { "type": "string", "pattern": "^(\\d{8}|\\d{12}|\\d{13}|\\d{14})$" },
+        "linking_kde": { "type": "string" },
+        "quantity": { "type": "number", "exclusiveMinimum": 0 },
+        "unit_of_measure": { "type": "string", "enum": ["KGM", "TNE", "LBR", "EA"] }
+      }
+    },
+    "where": {
+      "type": "object",
+      "anyOf": [
+        { "required": ["catch_area"] },
+        { "required": ["event_read_point"] }
+      ],
+      "properties": {
+        "event_read_point": {
+          "type": "object",
+          "required": ["latitude", "longitude"],
+          "properties": {
+            "latitude": { "type": "number", "minimum": -90, "maximum": 90 },
+            "longitude": { "type": "number", "minimum": -180, "maximum": 180 }
+          }
+        },
+        "catch_area": { "type": "string", "pattern": "^FAO\\d{2,3}$" },
+        "product_origin": { "type": "string" }
+      }
+    },
+    "when": {
+      "type": "object",
+      "required": ["event_id", "event_datetime"],
+      "properties": {
+        "event_id": { "type": "string", "minLength": 6, "maxLength": 64 },
+        "event_datetime": { "type": "string", "format": "date-time" },
+        "timezone": { "type": "string" },
+        "capture_date": { "type": "string", "format": "date-time" }
+      }
+    },
+    "iuu": {
+      "type": "object",
+      "required": ["fishing_authorization"],
+      "properties": {
+        "fishing_authorization": { "type": "string", "minLength": 1 },
+        "gear_type": { "type": "string" },
+        "production_method": { "type": "string" },
+        "harvest_certification": { "type": "string" }
+      }
+    },
+    "vessel": {
+      "type": "object",
+      "anyOf": [
+        { "required": ["vessel_id"] },
+        { "required": ["vessel_name"] }
+      ],
+      "properties": {
+        "vessel_id": { "type": "string" },
+        "vessel_name": { "type": "string" },
+        "vessel_registration": { "type": "string" },
+        "public_registry_url": { "type": "string", "format": "uri" },
+        "vessel_flag": { "type": "string", "pattern": "^[A-Z]{2}$" }
+      }
+    }
+  }
+}

@@ -66,9 +66,10 @@ Produced in [data-model.md](data-model.md), [quickstart.md](quickstart.md), and 
 
 ### Data model deliverables
 
-- `data-model.md` §Entities: GDST CTE, FSMA event, VC, SR, Operator.
+- `data-model.md` §Entities: GDST CTE, FSMA event, VC, SR, Operator, **Policy Registry (`PolicyConfig`)**.
 - `data-model.md` §Rule Source Table: per-event-type rules cross-referencing `compliance.py` and Guardian policy blocks.
 - `data-model.md` §Schema Map: one row per JSON-LD schema with source Pydantic model.
+- **Per-policy config lives in code, not scattered env vars**: `api/app/service/guardian_policies.py` holds a frozen `PolicyConfig` per compliance policy. Drives a single generic `schema_mapper.to_credential_subject(event, policy, ...)` mapper and a single policy-slug-parameterised `GET /guardian/{slug}/vc/{event_hash}` route. Rationale + alternatives in [research.md §8](research.md); invariants in [data-model.md §Policy Registry](data-model.md).
 
 ### Contract deliverables
 
@@ -112,7 +113,8 @@ api/
 │   │   └── auth.py                              # MODIFIED — include `did` claim in JWT
 │   ├── service/
 │   │   ├── guardian_client.py                   # NEW — MGS REST client + circuit breaker
-│   │   └── schema_mapper.py                     # NEW — Pydantic ↔ Guardian JSON-LD
+│   │   ├── guardian_policies.py                 # NEW — PolicyConfig registry (see data-model §Policy Registry)
+│   │   └── schema_mapper.py                     # NEW — Pydantic ↔ Guardian JSON-LD (single generic mapper)
 │   ├── routes/
 │   │   ├── guardian/
 │   │   │   ├── __init__.py                      # NEW

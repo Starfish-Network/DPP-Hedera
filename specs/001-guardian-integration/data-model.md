@@ -68,6 +68,33 @@ Guardian `User` role mapped from Starfish `operator` role. Has its own Hedera DI
 
 **Consent record (v1, out-of-band)**: The FR-015 disclosure acknowledgement is captured **outside the Starfish API** by the deployer before the operator is provisioned in the MGS portal. Concretely, the deployer retains a signed local record (e.g., a counter-signed PDF or an entry in a secured consent log keyed on the operator's DID) containing the acknowledgement text and an ISO-8601 timestamp. Starfish runs no consent API, stores no consent field, and makes no programmatic assertion that consent was captured — this is a deployment-runbook obligation. If consent capture needs to become programmatic, it will be added in v2 alongside the operator-onboarding endpoints.
 
+### Policy Registry (`PolicyConfig`)
+
+In-process registry of the compliance policies Starfish forwards events to. Populated at import time in `api/app/service/guardian_policies.py`; keyed by `slug`. Rationale and alternatives are recorded in [research.md §8](research.md).
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `slug` | `str` | URL segment for `/guardian/{slug}/vc/{event_hash}`; also the directory name under `schemas/` and `samples/`. Stable. |
+| `policy_id` | `str \| None` | MGS `policyId` of the published policy. Sourced from `settings.GUARDIAN_<SLUG>_POLICY_ID`. `None` ⇒ policy is not configured in this deployment. |
+| `intake_block_tag` | `str \| None` | External-data intake block tag for `POST /external/{policyId}/{blockTag}`. Sourced from `settings.GUARDIAN_<SLUG>_INTAKE_BLOCK_TAG`. |
+| `policy_version` | semver `str` | Guardian-policy semver mirrored into `credentialSubject.policyVersion` (FR-012). Bumped in lockstep with policy-publish events. |
+| `source_type_field` | `str` | Field name on the submitted event dict used for per-policy dispatch (e.g. `gdst_event_type`, `fsma204_event_type`). Pairs of policies MUST NOT share this value. |
+| `vc_type_field` | `str` | Field name the mapper writes into `credentialSubject` as the VC-side discriminator (`gdstEventType`, `fsma204EventType`). Pairs of policies MUST NOT share this value. |
+| `type_map` | `dict[str, str]` | Normalises source labels to VC labels (e.g. `"ShippingReceiving" → "Shipping"`). Empty dict ⇒ passthrough. |
+| `required_hoists` | `tuple[(str, str), ...]` | Subject-key → dotted-source-path pairs that must be hoisted to the top level of `credentialSubject` to satisfy the VC schema's `required` list (e.g. GDST: `("species", "what.species")`). |
+| `enabled` (property) | `bool` | Shorthand for `policy_id is not None and intake_block_tag is not None`. The `/events` hot path skips Guardian forwarding (not an error) when `False`. |
+
+**Invariants** (Constitution §II — composability):
+
+- Dispatch is unambiguous: for any two registered policies, `source_type_field` values differ. Enforced at registry-construction time.
+- Downstream trust-chain filters on `vc_type_field`, so that field is likewise unique across the registry.
+- `policy_version` matches the semver recorded on the most recent policy-publish event in MGS. Verified by the build script (`scripts/build_<slug>_policy.py`).
+
+**Lifecycle**:
+
+- Read from settings at import (process lifetime). Rotating `GUARDIAN_<SLUG>_POLICY_ID` requires a process restart — matches the pre-registry behaviour.
+- Adding a new policy: (1) add a `PolicyConfig` entry to `POLICIES`; (2) add the matching env keys to `config.py`; (3) land schemas under `schemas/<slug>/`. No edits to `schema_mapper.py`, `policy.py`, or `events.py` beyond the existing generic paths.
+
 ---
 
 ## 2. Rule Source Table

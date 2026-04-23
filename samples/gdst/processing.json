@@ -1,0 +1,28 @@
+{
+  "gdst_event_type": "Processing",
+  "who": {
+    "product_owner": "Starfish Processing Plant Ltd.",
+    "information_provider": "Plant Manager"
+  },
+  "what": {
+    "species": "TUN",
+    "product_form": "canned",
+    "quantity": 80.0,
+    "unit_of_measure": "KGM",
+    "linking_kde": "lot-PROC-2026-03-042"
+  },
+  "where": {
+    "source_location": "Port of Lae, PNG",
+    "destination_location": "Processing Plant #3, PNG"
+  },
+  "when": {
+    "event_id": "event-processing-001",
+    "event_datetime": "2026-03-18T11:00:00Z",
+    "production_date": "2026-03-18T10:30:00Z",
+    "expiration_date": "2028-03-18T10:30:00Z"
+  },
+  "iuu": {
+    "production_method": "canning",
+    "chain_of_custody_certification": "MSC-CoC-9911"
+  }
+}

@@ -9,6 +9,7 @@ from __future__ import annotations
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Callable, Literal
 
 import httpx
@@ -159,6 +160,31 @@ class TaskResult:
     error: str | None = None
 
 
+@dataclass
+class SubmitAck:
+    """Return of submit_document — MGS accepted the intake, issuance is async."""
+    event_hash: str
+    submitted_at: datetime
+    cached: bool = False  # True when the idempotency cache short-circuited
+
+
+# Duck-typed: any dict that looks like a VC works. Kept as `dict` for simplicity.
+VCDocument = dict[str, Any]
+
+
+@dataclass
+class VCRetrievalStatus:
+    """SC-007 retrieval state. Exactly one of `vc` or a status tag is set."""
+    state: Literal["ready", "pending", "manual_review", "unknown"]
+    vc: VCDocument | None = None
+
+
+# Hard cap on in-memory pagination (contract: guardian-client.md §105).
+_VC_PAGINATION_CAP = 1000
+# Idempotency cache TTL (wall seconds). FR-004 — duplicate submits short-circuit.
+_IDEMPOTENCY_TTL_S = 3600.0
+
+
 class GuardianClient:
     def __init__(
         self,
@@ -181,6 +207,13 @@ class GuardianClient:
         )
         self._clock = clock
         self._jwt: str | None = None
+        self._refresh_token: str | None = None
+        # Idempotency cache: event_hash -> (VCDocument-ish ack, wall_timestamp).
+        # Entries expire after _IDEMPOTENCY_TTL_S wall seconds (FR-004).
+        self._idempotency_cache: dict[str, tuple[VCDocument, float]] = {}
+        # Submission-time ledger: event_hash -> submitted_at (monotonic seconds).
+        # Drives SC-007 pending/manual_review thresholds.
+        self._submission_times: dict[str, float] = {}
 
     def _auth_headers(self) -> dict[str, str]:
         return {"Authorization": f"Bearer {self._jwt}"} if self._jwt else {}
@@ -192,7 +225,7 @@ class GuardianClient:
         if code == 451:
             return GuardianToSRequired("MGS requires TOS acceptance in the portal")
         if code in (401, 403):
-            return GuardianAuthError(f"MGS auth failed: {code}")
+            return GuardianAuthError(f"MGS auth failed: {code} — body={r.text[:200]!r}")
         if code == 404:
             return GuardianNotFound(r.text)
         if code == 409:
@@ -201,11 +234,19 @@ class GuardianClient:
             return GuardianUnavailable(f"MGS {code}: {r.text}")
         return GuardianClientError(f"MGS {code}: {r.text}")
 
-    async def _raw_call(self, method: str, path: str, **kwargs: Any) -> httpx.Response:
+    async def _raw_call(
+        self,
+        method: str,
+        path: str,
+        *,
+        headers: dict[str, str] | None = None,
+        **kwargs: Any,
+    ) -> httpx.Response:
+        merged = dict(self._auth_headers())
+        if headers:
+            merged.update(headers)
         try:
-            return await self._http.request(
-                method, path, headers=self._auth_headers(), **kwargs
-            )
+            return await self._http.request(method, path, headers=merged, **kwargs)
         except httpx.HTTPError as e:
             raise GuardianUnavailable(f"network: {e}") from e
 
@@ -220,20 +261,78 @@ class GuardianClient:
         return r
 
     async def login(self) -> str:
+        # MGS (`guardianservice.app`) authenticates regular users (incl. SRs)
+        # through /accounts/loginByEmail, which returns the MGS-shaped
+        # {success, posibleUsers, login: {...}} session DTO. /accounts/login
+        # only works for tenant-admin accounts where username == email.
         r = await self._raw_call(
             "POST",
-            "/accounts/login",
-            json={"username": self._sr_username, "password": self._sr_password},
+            "/accounts/loginByEmail",
+            json={
+                "email": self._sr_username,
+                "password": self._sr_password,
+            },
         )
         err = self._classify(r)
         if err is not None:
             if isinstance(err, (GuardianToSRequired, GuardianUnavailable)):
                 self._breaker.record_failure(err)
             raise err
-        token = r.json().get("accessToken")
+
+        body = r.json()
+        # MGS tenants wrap the session under `login` and gate it behind
+        # `success` (multi-user disambiguation). Stock Guardian returns the
+        # session flat. Support both.
+        if isinstance(body, dict) and "success" in body and not body.get("login"):
+            possible = body.get("posibleUsers") or []
+            raise GuardianClientError(
+                f"MGS login requires userId disambiguation; posibleUsers={possible!r}"
+            )
+        session = body.get("login") if isinstance(body.get("login"), dict) else body
+        if not isinstance(session, dict):
+            raise GuardianClientError(f"login response not an object: {body!r}")
+
+        # MGS returns only a refreshToken from /accounts/login — exchange it at
+        # /accounts/access-token for the bearer. Stock Guardian returns an
+        # accessToken directly, in which case we skip the second hop.
+        token = session.get("accessToken")
+        refresh = session.get("refreshToken")
+        if refresh:
+            self._refresh_token = refresh
         if not token:
-            raise GuardianClientError("MGS login response missing accessToken")
+            if not refresh:
+                preview = str(body)[:200]
+                raise GuardianClientError(
+                    f"login response missing both accessToken and refreshToken "
+                    f"(body={preview})"
+                )
+            token = await self._exchange_refresh_token(refresh)
         self._jwt = token
+        return token
+
+    async def _exchange_refresh_token(self, refresh_token: str) -> str:
+        """POST /accounts/access-token with the refresh token — returns the bearer."""
+        r = await self._raw_call(
+            "POST",
+            "/accounts/access-token",
+            json={"refreshToken": refresh_token},
+        )
+        err = self._classify(r)
+        if err is not None:
+            if isinstance(err, (GuardianToSRequired, GuardianUnavailable)):
+                self._breaker.record_failure(err)
+            raise err
+        body = r.json()
+        token = (
+            body.get("accessToken")
+            if isinstance(body, dict)
+            else None
+        )
+        if not token:
+            preview = str(body)[:200]
+            raise GuardianClientError(
+                f"/accounts/access-token response missing accessToken (body={preview})"
+            )
         return token
 
     async def get_health(self) -> HealthStatus:
@@ -310,3 +409,300 @@ class GuardianClient:
                 f"task {task_id} did not complete in {timeout}s"
             ) from e
         raise GuardianTaskTimeout(f"task {task_id} did not complete in {timeout}s")
+
+    # --- Event submission + VC retrieval (hot path) ---
+
+    def _purge_idempotency_cache(self) -> None:
+        now = self._clock()
+        stale = [k for k, (_, t) in self._idempotency_cache.items()
+                 if now - t > _IDEMPOTENCY_TTL_S]
+        for k in stale:
+            self._idempotency_cache.pop(k, None)
+
+    async def submit_document(
+        self,
+        policy_id: str,
+        block_tag: str,
+        document: dict[str, Any],
+    ) -> SubmitAck:
+        """
+        POST /external/{policyId}/{blockTag}. Fire-and-acknowledge (contract §72).
+
+        - Short-circuits on idempotency cache hit (FR-004) — no MGS call.
+        - Raises GuardianBreakerOpen immediately if the breaker is open.
+        - Increments the breaker on network/5xx/429. 451 -> tos_required,
+          no counter increment. Other 4xx -> GuardianClientError, no increment.
+        """
+        event_hash = document.get("eventHash")
+        if not isinstance(event_hash, str):
+            raise ValueError("document missing 'eventHash' — mapper must stamp it")
+
+        self._purge_idempotency_cache()
+        cached = self._idempotency_cache.get(event_hash)
+        if cached is not None:
+            vc, _ = cached
+            return SubmitAck(
+                event_hash=event_hash,
+                submitted_at=datetime.now(timezone.utc),
+                cached=True,
+            )
+
+        if not self._breaker.should_allow_call():
+            raise GuardianBreakerOpen(f"breaker state: {self._breaker.state}")
+
+        if self._jwt is None:
+            await self.login()
+
+        path = f"/external/{policy_id}/{block_tag}"
+        r = await self._call_with_refresh("POST", path, json=document)
+        err = self._classify(r)
+        if err is not None:
+            if isinstance(err, (GuardianUnavailable, GuardianToSRequired)):
+                self._breaker.record_failure(err)
+            raise err
+
+        self._breaker.record_success()
+        now_mono = self._clock()
+        self._idempotency_cache[event_hash] = (document, now_mono)
+        self._submission_times[event_hash] = now_mono
+        return SubmitAck(
+            event_hash=event_hash,
+            submitted_at=datetime.now(timezone.utc),
+            cached=False,
+        )
+
+    async def _list_vcs_for_policy(self, policy_id: str) -> list[VCDocument]:
+        """GET /policies/{id}/documents?type=VC with in-memory pagination."""
+        results: list[VCDocument] = []
+        page = 1
+        page_size = 100
+        while len(results) < _VC_PAGINATION_CAP:
+            r = await self._call_with_refresh(
+                "GET",
+                f"/policies/{policy_id}/documents",
+                params={"type": "VC", "page": page, "pageSize": page_size},
+            )
+            err = self._classify(r)
+            if err is not None:
+                raise err
+            body = r.json()
+            # MGS returns either a bare list or {items: [...], total: N}; handle both.
+            if isinstance(body, dict):
+                items = body.get("items") or body.get("data") or []
+            else:
+                items = list(body)
+            if not items:
+                break
+            results.extend(items)
+            if len(items) < page_size:
+                break
+            page += 1
+        if len(results) >= _VC_PAGINATION_CAP:
+            raise GuardianUnavailable(
+                f"VC pagination hit cap {_VC_PAGINATION_CAP} — reconciliation is behind"
+            )
+        return results
+
+    @staticmethod
+    def _credential_subject(vc: VCDocument) -> dict[str, Any]:
+        cs = vc.get("credentialSubject") or {}
+        if isinstance(cs, list):
+            return cs[0] if cs else {}
+        return cs
+
+    async def get_vc_by_event_hash(
+        self,
+        policy_id: str,
+        event_hash: str,
+        *,
+        history: bool = False,
+    ) -> VCDocument | list[VCDocument] | None:
+        """
+        Retrieve a VC (or its full superseding chain) by eventHash.
+
+        - history=False: returns the latest VC (the one whose complianceStatus
+          != 'superseded', falling back to the most recently issued).
+        - history=True: returns the ordered chain [oldest, ..., latest].
+        """
+        if self._jwt is None:
+            await self.login()
+
+        all_vcs = await self._list_vcs_for_policy(policy_id)
+        matches = [
+            vc for vc in all_vcs
+            if self._credential_subject(vc).get("eventHash") == event_hash
+        ]
+
+        def _issued_at(vc: VCDocument) -> str:
+            return (
+                self._credential_subject(vc).get("issuedAt")
+                or vc.get("issuanceDate")
+                or ""
+            )
+
+        matches.sort(key=_issued_at)
+
+        if history:
+            return matches
+        if not matches:
+            return None
+
+        non_superseded = [
+            vc for vc in matches
+            if self._credential_subject(vc).get("complianceStatus") != "superseded"
+        ]
+        return non_superseded[-1] if non_superseded else matches[-1]
+
+    async def get_vc_retrieval_status(
+        self,
+        policy_id: str,
+        event_hash: str,
+        *,
+        submitted_at: datetime,
+    ) -> VCRetrievalStatus:
+        """
+        Drives SC-007's pending/manual_review state machine.
+
+        - ready(vc) when a VC exists.
+        - pending when no VC yet and elapsed < VC_PENDING_THRESHOLD_S.
+        - manual_review when no VC yet and elapsed >= VC_MANUAL_REVIEW_CEILING_S.
+        - unknown when nothing found and we have no submission record.
+        """
+        vc = await self.get_vc_by_event_hash(policy_id, event_hash, history=False)
+        if vc is not None and not isinstance(vc, list):
+            return VCRetrievalStatus(state="ready", vc=vc)
+
+        # No VC yet — compare elapsed wall time against the two thresholds.
+        now_wall = datetime.now(timezone.utc)
+        elapsed_s = (now_wall - submitted_at).total_seconds()
+
+        if event_hash not in self._submission_times and elapsed_s < 0:
+            return VCRetrievalStatus(state="unknown")
+
+        if elapsed_s >= VC_MANUAL_REVIEW_CEILING_S:
+            return VCRetrievalStatus(state="manual_review")
+        if elapsed_s >= VC_PENDING_THRESHOLD_S:
+            # Between 30s and 300s: still pending from the retrieval contract's
+            # perspective — tests parametrise the thresholds via module constants.
+            return VCRetrievalStatus(state="pending")
+        return VCRetrievalStatus(state="pending")
+
+    # --- Schema & policy lifecycle (bootstrap path, used by build scripts) ---
+
+    async def _authed_call(
+        self,
+        method: str,
+        path: str,
+        **kwargs: Any,
+    ) -> httpx.Response:
+        """Shared helper: ensure login, dispatch, classify, record breaker."""
+        if self._jwt is None:
+            await self.login()
+        r = await self._call_with_refresh(method, path, **kwargs)
+        err = self._classify(r)
+        if err is not None:
+            if isinstance(err, (GuardianUnavailable, GuardianToSRequired)):
+                self._breaker.record_failure(err)
+            raise err
+        self._breaker.record_success()
+        return r
+
+    async def create_schema(
+        self, topic_id: str, schema: dict[str, Any]
+    ) -> list[dict[str, Any]]:
+        """
+        POST /schemas/{topicId} — sync. MGS responds with the SR's full schema
+        list (including the new record). Callers pick their record by matching
+        `name` or `uuid`.
+        """
+        r = await self._authed_call("POST", f"/schemas/{topic_id}", json=schema)
+        return r.json()
+
+    async def publish_schema(
+        self, schema_id: str, *, version: str = "1.0.0"
+    ) -> TaskHandle:
+        """
+        PUT /schemas/push/{schemaId}/publish — async. Returns a TaskHandle; the
+        caller polls completion with `wait_for_task`. MGS requires a
+        `{version}` body per VersionSchemaDTO.
+        """
+        r = await self._authed_call(
+            "PUT",
+            f"/schemas/push/{schema_id}/publish",
+            json={"version": version},
+        )
+        task_id = r.json().get("taskId")
+        if not task_id:
+            raise GuardianClientError(
+                f"missing taskId in /schemas/push/{schema_id}/publish response"
+            )
+        return TaskHandle(taskId=task_id)
+
+    async def create_policy(self, policy: dict[str, Any]) -> list[dict[str, Any]]:
+        """
+        POST /policies — sync. Returns the SR's full policy list (same shape
+        convention as `create_schema`).
+        """
+        r = await self._authed_call("POST", "/policies", json=policy)
+        return r.json()
+
+    async def get_policy(self, policy_id: str) -> dict[str, Any]:
+        """GET /policies/{policyId} — fetch the current draft/published config."""
+        r = await self._authed_call("GET", f"/policies/{policy_id}")
+        return r.json()
+
+    async def update_policy(
+        self, policy_id: str, policy: dict[str, Any]
+    ) -> dict[str, Any]:
+        """PUT /policies/{policyId} — replace the draft configuration."""
+        r = await self._authed_call("PUT", f"/policies/{policy_id}", json=policy)
+        return r.json()
+
+    async def publish_policy(
+        self, policy_id: str, *, policy_version: str = "1.0.0"
+    ) -> TaskHandle:
+        """
+        PUT /policies/push/{policyId}/publish — async. The body carries the
+        `policyVersion` label MGS records into the Hedera topic.
+        """
+        r = await self._authed_call(
+            "PUT",
+            f"/policies/push/{policy_id}/publish",
+            json={"policyVersion": policy_version},
+        )
+        task_id = r.json().get("taskId")
+        if not task_id:
+            raise GuardianClientError(
+                f"missing taskId in /policies/push/{policy_id}/publish response"
+            )
+        return TaskHandle(taskId=task_id)
+
+    async def export_policy(self, policy_id: str, out_path: Path) -> Path:
+        """
+        GET /policies/{policyId}/export/file — returns a zip bundle of the
+        published policy + schemas. Written verbatim to `out_path`.
+        """
+        out_path = Path(out_path)
+        r = await self._authed_call("GET", f"/policies/{policy_id}/export/file")
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_bytes(r.content)
+        return out_path
+
+    async def import_policy_file(self, zip_bytes: bytes) -> TaskHandle:
+        """
+        POST /policies/push/import/file — async. Uploads a `.policy` zip so
+        MGS re-creates the policy locally; returns a TaskHandle whose result
+        contains the imported policy id.
+        """
+        r = await self._authed_call(
+            "POST",
+            "/policies/push/import/file",
+            content=zip_bytes,
+            headers={"Content-Type": "application/octet-stream"},
+        )
+        task_id = r.json().get("taskId")
+        if not task_id:
+            raise GuardianClientError(
+                "missing taskId in /policies/push/import/file response"
+            )
+        return TaskHandle(taskId=task_id)

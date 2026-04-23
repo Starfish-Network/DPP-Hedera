@@ -1,0 +1,39 @@
+{
+  "gdst_event_type": "Fishing",
+  "who": {
+    "product_owner": "Starfish Test Fishing Co.",
+    "information_provider": "Skipper Jane Doe"
+  },
+  "what": {
+    "species": "TUN",
+    "product_form": "whole",
+    "quantity": 120.5,
+    "unit_of_measure": "KGM",
+    "linking_kde": "lot-FSH-2026-03-001"
+  },
+  "where": {
+    "catch_area": "FAO71",
+    "event_read_point": {
+      "latitude": -8.45,
+      "longitude": 152.33
+    }
+  },
+  "when": {
+    "event_id": "event-fishing-001",
+    "event_datetime": "2026-03-15T10:30:00Z",
+    "capture_date": "2026-03-15T09:10:00Z"
+  },
+  "iuu": {
+    "fishing_authorization": "PNG-FSH-AUTH-2026-0001",
+    "gear_type": "longline",
+    "production_method": "wild_capture",
+    "harvest_certification": "MSC-12345"
+  },
+  "vessel": {
+    "vessel_id": "IMO1234567",
+    "vessel_name": "FV Sea Harvest",
+    "vessel_registration": "PNG-REG-8877",
+    "public_registry_url": "https://rfmo.example/vessels/IMO1234567",
+    "vessel_flag": "PG"
+  }
+}

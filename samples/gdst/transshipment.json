@@ -1,0 +1,31 @@
+{
+  "gdst_event_type": "Transshipment",
+  "who": {
+    "product_owner": "Starfish Test Fishing Co.",
+    "information_provider": "Reefer Agent"
+  },
+  "what": {
+    "species": "SKJ",
+    "quantity": 2500.0,
+    "unit_of_measure": "KGM",
+    "linking_kde": "lot-TRN-2026-03-002"
+  },
+  "where": {
+    "event_read_point": {
+      "latitude": -5.0,
+      "longitude": 160.0
+    }
+  },
+  "when": {
+    "event_id": "event-transshipment-001",
+    "event_datetime": "2026-03-17T14:20:00Z"
+  },
+  "iuu": {
+    "transshipment_authorization": "WCPFC-TSHIP-2026-0077"
+  },
+  "transshipment_vessel": {
+    "vessel_id": "IMO7654321",
+    "vessel_name": "MV Pacific Reefer",
+    "vessel_flag": "KR"
+  }
+}

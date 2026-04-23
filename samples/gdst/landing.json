@@ -1,0 +1,29 @@
+{
+  "gdst_event_type": "Landing",
+  "who": {
+    "product_owner": "Starfish Test Fishing Co.",
+    "information_provider": "Port of Lae Agent"
+  },
+  "what": {
+    "species": "TUN",
+    "quantity": 118.0,
+    "unit_of_measure": "KGM",
+    "linking_kde": "lot-FSH-2026-03-001"
+  },
+  "where": {
+    "destination_location": "Port of Lae, PNG",
+    "event_read_point": {
+      "latitude": -6.73,
+      "longitude": 146.99
+    }
+  },
+  "when": {
+    "event_id": "event-landing-001",
+    "event_datetime": "2026-03-16T08:00:00Z",
+    "landing_date": "2026-03-16T07:45:00Z"
+  },
+  "iuu": {
+    "landing_authorization": "PNG-LAND-AUTH-2026-0017",
+    "chain_of_custody_certification": "MSC-CoC-9911"
+  }
+}

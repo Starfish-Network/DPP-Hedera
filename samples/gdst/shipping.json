@@ -1,0 +1,25 @@
+{
+  "gdst_event_type": "ShippingReceiving",
+  "who": {
+    "product_owner": "Starfish Processing Plant Ltd.",
+    "information_provider": "Logistics Coordinator"
+  },
+  "what": {
+    "species": "TUN",
+    "product_form": "canned",
+    "quantity": 80.0,
+    "unit_of_measure": "KGM",
+    "linking_kde": "lot-PROC-2026-03-042"
+  },
+  "where": {
+    "source_location": "Processing Plant #3, PNG",
+    "destination_location": "Distributor DC-01, Singapore"
+  },
+  "when": {
+    "event_id": "event-shipping-001",
+    "event_datetime": "2026-03-19T09:00:00Z"
+  },
+  "iuu": {
+    "chain_of_custody_certification": "MSC-CoC-9911"
+  }
+}

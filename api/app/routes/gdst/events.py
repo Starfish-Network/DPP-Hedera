@@ -1,7 +1,8 @@
 import base64
 import datetime
 import json
-from fastapi import APIRouter, File, HTTPException, UploadFile
+import logging
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
 from app.service.ipfs import download_from_ipfs, upload_to_ipfs
 from app.core.client import get_client
@@ -11,13 +12,48 @@ from app.core.kms import get_kms
 from app.crypto.encryption import envelope_encrypt, file_envelope_decrypt, file_envelope_encrypt
 from app.models.gdst.base import GDSTEvent
 from app.core.config import settings
+from app.routes.guardian.identity import get_guardian_client
+from app.service.guardian_client import (
+    GuardianBreakerOpen,
+    GuardianClient,
+    GuardianError,
+)
+from app.service.schema_mapper import to_credential_subject_gdst
 from hiero_sdk_python.contract.contract_id import ContractId
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/events", tags=["Events"])
 
-@router.post("", summary="Receive GDST event → encrypt → write to Hedera")
-def create_gdst_event(evt: GDSTEvent):
-    """Accepts any GDST event and writes it immutably to Hedera, following the same logic as EPCIS events."""
+# Semver of the currently-deployed GDST Guardian policy. Bumped in lockstep
+# with schema IRIs when the rule set changes (FR-012).
+_GDST_POLICY_VERSION = "1.0.0"
+
+
+def _maybe_get_guardian_client() -> GuardianClient | None:
+    """Return the client if Guardian is configured, else None.
+
+    Keeps the /events hot path working when Guardian is disabled or partially
+    configured — events still land on HCS (Constitution §IV).
+    """
+    if not (
+        settings.GUARDIAN_API_URL
+        and settings.GUARDIAN_SR_USERNAME
+        and settings.GUARDIAN_SR_PASSWORD
+        and settings.GUARDIAN_GDST_POLICY_ID
+        and settings.GUARDIAN_GDST_INTAKE_BLOCK_TAG
+    ):
+        return None
+    try:
+        return get_guardian_client()
+    except HTTPException:
+        return None
+
+
+@router.post("", summary="Receive GDST event -> encrypt -> write to Hedera -> submit to Guardian")
+async def create_gdst_event(evt: GDSTEvent):
+    """Accepts any GDST event, writes it immutably to Hedera (HCS), then
+    forwards the compliance payload to Guardian (non-blocking).
+    """
     source = "starfish"
     event_dict = evt.model_dump(mode="json")
     enc_meta, data_key = envelope_encrypt(event_dict)
@@ -38,16 +74,51 @@ def create_gdst_event(evt: GDSTEvent):
         result = hedera_post_transaction(encrypted_payload)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Hedera write failed: {e}")
-    
+
     event_hash = sha256_bytes32(event_dict)
+    event_hash_hex = "0x" + event_hash.hex()
+
+    # --- Guardian forwarding (non-blocking on hot path, Constitution §IV) ---
+    guardian_submission: dict = {"status": "skipped", "reason": "not_configured"}
+    client = _maybe_get_guardian_client()
+    if client is not None:
+        try:
+            subject = to_credential_subject_gdst(
+                event_dict, policy_version=_GDST_POLICY_VERSION
+            )
+            ack = await client.submit_document(
+                policy_id=settings.GUARDIAN_GDST_POLICY_ID,
+                block_tag=settings.GUARDIAN_GDST_INTAKE_BLOCK_TAG,
+                document=subject,
+            )
+            guardian_submission = {
+                "status": "submitted",
+                "cached": ack.cached,
+                "submittedAt": ack.submitted_at.isoformat(),
+            }
+        except GuardianBreakerOpen:
+            # T054 (US3) will expand this into a structured WARN with the
+            # full {event_hash, operator_did, mgs_error_class, breaker_opened_at}
+            # payload. For now keep the HCS path unblocked.
+            logger.warning(
+                "guardian.skipped", extra={"event_hash": event_hash_hex, "reason": "breaker_open"}
+            )
+            guardian_submission = {"status": "skipped", "reason": "breaker_open"}
+        except GuardianError as e:
+            logger.warning(
+                "guardian.error",
+                extra={"event_hash": event_hash_hex, "error": e.__class__.__name__},
+            )
+            guardian_submission = {"status": "error", "reason": e.__class__.__name__}
 
     return {
         "status": "ok",
         "transactionId": result["transactionId"],
         "receiptStatus": result["receiptStatus"],
         "eventType": event_dict["gdst_event_type"],
-        "eventHash": event_hash.hex(),
+        "eventHash": event_hash_hex,
         "source": source,
+        "guardian": guardian_submission,
     }
 
 @router.get("/{event_hash_hex}/files", summary="Get file CIDs attached to an event")
@@ -77,17 +148,17 @@ async def attach_file_to_event(
         raw = await file.read()
         if not raw:
             raise HTTPException(status_code=400, detail="Empty file")
-        
+
         metadata = {
             "filename": file.filename,
             "mime_type": file.content_type,
         }
 
-        # 1️⃣ Envelope-encrypt using your AES-GCM
+        # 1. Envelope-encrypt using your AES-GCM
         envelope, data_key = file_envelope_encrypt(raw, metadata)
         envelope_json = json.dumps(envelope).encode("utf-8")
 
-        # 2️⃣ Upload ciphertext to IPFS
+        # 2. Upload ciphertext to IPFS
         cid = upload_to_ipfs(envelope_json, filename=file.filename)
 
         # Store CID on smart contract

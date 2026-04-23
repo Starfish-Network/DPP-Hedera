@@ -1,0 +1,32 @@
+{
+  "gdst_event_type": "OnVesselProcessing",
+  "who": {
+    "product_owner": "Starfish Test Fishing Co.",
+    "information_provider": "Onboard Processor"
+  },
+  "what": {
+    "species": "TUN",
+    "product_form": "loins",
+    "quantity": 90.0,
+    "unit_of_measure": "KGM"
+  },
+  "where": {
+    "event_read_point": {
+      "latitude": -8.40,
+      "longitude": 152.35
+    }
+  },
+  "when": {
+    "event_id": "event-onvessel-001",
+    "event_datetime": "2026-03-15T16:00:00Z",
+    "production_date": "2026-03-15T15:50:00Z"
+  },
+  "iuu": {
+    "production_method": "wild_capture",
+    "chain_of_custody_certification": "MSC-CoC-9911"
+  },
+  "vessel": {
+    "vessel_id": "IMO1234567",
+    "vessel_name": "FV Sea Harvest"
+  }
+}

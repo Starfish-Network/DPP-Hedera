@@ -92,6 +92,23 @@ Schema IRIs are semver (`#GDSTFishingEvent&1.0.0`); breaking changes bump the ma
 
 - Hand-rolled sleep loop: rejected; retry libraries handle jitter, capping, and cancellation correctly.
 
+## 8. Per-Policy Configuration (registry vs. env-scatter)
+
+**Decision**: Per-policy metadata (MGS policy id, intake block tag, policy version, the source-event type-field, the VC-side discriminator, the Pydantic→VC type map, and any required `credentialSubject` hoists) lives in a single in-process registry module `api/app/service/guardian_policies.py` as a frozen `PolicyConfig` dataclass per policy. Env variables (`GUARDIAN_*_POLICY_ID`, `GUARDIAN_*_INTAKE_BLOCK_TAG`) remain the deployment knob and are read into the registry at import time. Callers on the hot path (`/events`, `/guardian/{slug}/vc`) receive a `PolicyConfig` and pass it through to a single generic `schema_mapper.to_credential_subject(event, policy, ...)` and to `guardian_client.submit_document(policy.policy_id, policy.intake_block_tag, ...)`.
+
+**Alternatives considered**:
+
+- *Parallel `to_credential_subject_gdst` / `to_credential_subject_fsma` + `/guardian/gdst/vc` / `/guardian/fsma/vc`* (the pre-refactor shape). Rejected: the duplication scales linearly with policy count; adding a third policy would mean a third mapper, a third route handler, and a third env-var group — all essentially copy-paste.
+- *Pydantic-settings nested model for per-policy config*. Rejected: env-var discovery gets opaque (nested delimiters), and the dispatch-by-type-field logic still needs a Python object; a frozen `dataclass` keyed by slug is simpler and testable without settings at all.
+- *Service-locator pattern (policy object fetched by an injected factory)*. Rejected for v1: adds a DI layer for zero present benefit. A module-level `POLICIES` dict is sufficient when policies are known at deploy time.
+
+**Consequences**:
+
+- `FR-012` (schema/policy semver) is owned by the `policy_version` field on each `PolicyConfig`, not by a constant scattered in `events.py` / `compliance.py`.
+- Invariants enforced at registry-construction time (Constitution §II): no two `PolicyConfig` entries may share `source_type_field` (dispatch ambiguity) or `vc_type_field` (downstream-policy discriminator collision).
+- Adding a new compliance policy = one entry in `POLICIES` + the matching schemas under `schemas/<slug>/`. No shared-code edits beyond the registry itself.
+- The Guardian client contract is unchanged — it still takes `policy_id: str`. Registry awareness lives in routes and the mapper, not in the wire-layer client.
+
 ---
 
 ## Open items left for `/speckit-tasks`

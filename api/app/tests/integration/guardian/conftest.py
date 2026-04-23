@@ -31,7 +31,7 @@ def mgs_mock() -> Iterator[respx.MockRouter]:
     inside the `with` block.
     """
     with respx.mock(base_url=MGS_BASE_URL, assert_all_called=False) as router:
-        router.post("/accounts/login").mock(
+        router.post("/accounts/loginByEmail").mock(
             return_value=httpx.Response(200, json={"accessToken": "test-jwt"})
         )
         router.get("/accounts/session").mock(

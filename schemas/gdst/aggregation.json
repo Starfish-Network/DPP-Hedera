@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "#GDSTAggregationEvent&1.0.0",
+  "title": "GDST Aggregation / Disaggregation Event (CTE)",
+  "description": "Source Pydantic: api/app/models/gdst/aggregation.py::AggregationEvent (mapped to 'Aggregation' at the VC boundary). Rules: GDST_COMMON_001-004, GDST_AGGREGATION_001.",
+  "type": "object",
+  "required": ["gdst_event_type", "what", "when", "where"],
+  "anyOf": [
+    { "required": ["parent_items"], "properties": { "parent_items": { "type": "array", "minItems": 1 } } },
+    { "required": ["child_items"], "properties": { "child_items": { "type": "array", "minItems": 1 } } }
+  ],
+  "properties": {
+    "gdst_event_type": { "enum": ["Aggregation", "AggregationDisaggregation"] },
+    "who": {
+      "type": "object",
+      "properties": {
+        "product_owner": { "type": "string" },
+        "information_provider": { "type": "string" }
+      }
+    },
+    "what": {
+      "type": "object",
+      "required": ["species", "quantity", "unit_of_measure"],
+      "properties": {
+        "species": { "type": "string", "pattern": "^[A-Z]{3}$" },
+        "quantity": { "type": "number", "exclusiveMinimum": 0 },
+        "unit_of_measure": { "type": "string", "enum": ["KGM", "TNE", "LBR", "EA"] }
+      }
+    },
+    "where": {
+      "type": "object",
+      "properties": {
+        "source_location": { "type": "string" }
+      }
+    },
+    "when": {
+      "type": "object",
+      "required": ["event_id", "event_datetime"],
+      "properties": {
+        "event_id": { "type": "string", "minLength": 6, "maxLength": 64 },
+        "event_datetime": { "type": "string", "format": "date-time" }
+      }
+    },
+    "parent_items": { "type": "array", "items": { "type": "string" } },
+    "child_items": { "type": "array", "items": { "type": "string" } }
+  }
+}

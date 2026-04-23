@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "#GDSTLandingEvent&1.0.0",
+  "title": "GDST Landing Event (CTE)",
+  "description": "Source Pydantic: api/app/models/gdst/landing.py::LandingEvent. Rules: GDST_COMMON_001-004, GDST_LANDING_001.",
+  "type": "object",
+  "required": ["gdst_event_type", "what", "when", "where", "iuu"],
+  "properties": {
+    "gdst_event_type": { "const": "Landing" },
+    "who": {
+      "type": "object",
+      "properties": {
+        "product_owner": { "type": "string" },
+        "information_provider": { "type": "string" }
+      }
+    },
+    "what": {
+      "type": "object",
+      "required": ["species", "quantity", "unit_of_measure"],
+      "properties": {
+        "species": { "type": "string", "pattern": "^[A-Z]{3}$" },
+        "quantity": { "type": "number", "exclusiveMinimum": 0 },
+        "unit_of_measure": { "type": "string", "enum": ["KGM", "TNE", "LBR", "EA"] },
+        "product_form": { "type": "string" },
+        "linking_kde": { "type": "string" }
+      }
+    },
+    "where": {
+      "type": "object",
+      "properties": {
+        "event_read_point": {
+          "type": "object",
+          "properties": {
+            "latitude": { "type": "number", "minimum": -90, "maximum": 90 },
+            "longitude": { "type": "number", "minimum": -180, "maximum": 180 }
+          }
+        },
+        "source_location": { "type": "string" },
+        "destination_location": { "type": "string" },
+        "product_origin": { "type": "string" }
+      }
+    },
+    "when": {
+      "type": "object",
+      "required": ["event_id", "event_datetime"],
+      "properties": {
+        "event_id": { "type": "string", "minLength": 6, "maxLength": 64 },
+        "event_datetime": { "type": "string", "format": "date-time" },
+        "landing_date": { "type": "string", "format": "date-time" }
+      }
+    },
+    "iuu": {
+      "type": "object",
+      "required": ["landing_authorization"],
+      "properties": {
+        "landing_authorization": { "type": "string", "minLength": 1 },
+        "chain_of_custody_certification": { "type": "string" }
+      }
+    }
+  }
+}

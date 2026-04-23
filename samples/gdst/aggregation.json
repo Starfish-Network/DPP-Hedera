@@ -1,0 +1,28 @@
+{
+  "gdst_event_type": "AggregationDisaggregation",
+  "who": {
+    "product_owner": "Starfish Processing Plant Ltd.",
+    "information_provider": "Warehouse Supervisor"
+  },
+  "what": {
+    "species": "TUN",
+    "quantity": 80.0,
+    "unit_of_measure": "KGM"
+  },
+  "where": {
+    "source_location": "Processing Plant #3, PNG"
+  },
+  "when": {
+    "event_id": "event-aggregation-001",
+    "event_datetime": "2026-03-18T17:30:00Z"
+  },
+  "iuu": {
+    "chain_of_custody_certification": "MSC-CoC-9911"
+  },
+  "parent_items": ["pallet-PAL-2026-03-01"],
+  "child_items": [
+    "case-C-2026-03-0001",
+    "case-C-2026-03-0002",
+    "case-C-2026-03-0003"
+  ]
+}

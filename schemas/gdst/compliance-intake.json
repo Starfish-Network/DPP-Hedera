@@ -1,0 +1,81 @@
+{
+  "name": "GDSTComplianceIntake",
+  "description": "Credential subject accepted by the GDST policy's external intake block. Stamped server-side by api/app/service/schema_mapper.py::to_credential_subject_gdst from any of the 7 validated GDST CTEs (Fishing, Landing, Transshipment, OnVesselProcessing, Processing, Shipping, Aggregation). FR-015: the full original event payload is preserved verbatim under `event`.",
+  "entity": "VC",
+  "document": {
+    "title": "GDSTComplianceIntake",
+    "description": "GDST compliance credential subject",
+    "type": "object",
+    "properties": {
+      "eventHash": {
+        "title": "Event hash",
+        "description": "sha256 of the canonical GDST event, hex-encoded with 0x prefix.",
+        "type": "string",
+        "pattern": "^0x[0-9a-f]{64}$"
+      },
+      "gdstEventType": {
+        "title": "GDST event type",
+        "description": "One of the 7 GDST Critical Tracking Event types.",
+        "type": "string",
+        "enum": [
+          "Fishing",
+          "Landing",
+          "Transshipment",
+          "OnVesselProcessing",
+          "Processing",
+          "Shipping",
+          "Aggregation"
+        ]
+      },
+      "complianceStatus": {
+        "title": "Compliance status",
+        "description": "`compliant` for initial issuance, `superseded` for corrective VCs.",
+        "type": "string",
+        "enum": ["compliant", "superseded"]
+      },
+      "species": {
+        "title": "Species (FAO ASFIS)",
+        "description": "FAO ASFIS 3-letter species code.",
+        "type": "string",
+        "pattern": "^[A-Z]{3}$"
+      },
+      "policyVersion": {
+        "title": "Policy version",
+        "description": "Semantic version of the GDST Guardian policy.",
+        "type": "string"
+      },
+      "issuedAt": {
+        "title": "Issued at",
+        "description": "ISO-8601 timestamp stamped by the FastAPI mapper at submit time.",
+        "type": "string",
+        "format": "date-time"
+      },
+      "supersedes": {
+        "title": "Supersedes (event hash)",
+        "description": "When present, this VC replaces the one identified by the referenced eventHash.",
+        "type": "string"
+      },
+      "event": {
+        "title": "Original event payload",
+        "description": "Full verbatim GDST event payload preserved per FR-015.",
+        "type": "object"
+      }
+    },
+    "required": [
+      "eventHash",
+      "gdstEventType",
+      "complianceStatus",
+      "species",
+      "policyVersion",
+      "issuedAt"
+    ]
+  },
+  "context": {
+    "@context": {
+      "@version": 1.1,
+      "@vocab": "https://w3id.org/traceability/#undefinedTerm",
+      "id": "@id",
+      "type": "@type"
+    }
+  }
+}
