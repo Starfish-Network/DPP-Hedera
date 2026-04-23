@@ -49,6 +49,17 @@ The 5 clarifications recorded in [spec.md §Clarifications](spec.md) introduced 
 
 No principle is in tension. Complexity Tracking table remains empty.
 
+### Post-refactor re-check (2026-04-24, after `PolicyConfig` registry spec update)
+
+The four-file spec update that introduced [research.md §8](research.md) (registry vs. env-scatter), the Policy Registry entity in [data-model.md](data-model.md), the Phase 1 design bullet above, and the tasks.md T036a refactor task touches Principle VI directly and Principle II indirectly. Re-check:
+
+| Principle | Re-check after registry spec update | Status |
+|-----------|-------------------------------------|--------|
+| II. Composable by design | Registry-construction invariants (unique `source_type_field`, unique `vc_type_field`) formalise the downstream-discrimination contract. `policy_version` ownership moves from a scattered constant to a per-policy config field, strengthening FR-012. | Pass (stronger) |
+| VI. Authoritative contracts | **Exemption acknowledged**: the inbound `/guardian/*` HTTP surface is specified in [contracts/guardian-http-errors.md](contracts/guardian-http-errors.md) as a prose+table contract, not as OpenAPI. Outbound MGS boundary (`mgs-boundary.openapi.yaml`), VC wire format (`vc-output.schema.json`), and the Python client (`guardian-client.md`) remain authoritative. OpenAPI for `/guardian/*` is deferred pending a first external HTTP consumer — v1 has one internal consumer (our own tooling). Re-evaluate before any third party is given this surface. | Pass (with documented exemption) |
+
+All other principles unchanged from the post-clarifications re-check. Complexity Tracking table remains empty.
+
 ## Phase 0 — Research
 
 Produced in [research.md](research.md). Resolves the four open decisions from Constitution §Open Decisions:
@@ -63,6 +74,13 @@ Also records the choice of circuit-breaker library vs hand-rolled, and the HTTP 
 ## Phase 1 — Design
 
 Produced in [data-model.md](data-model.md), [quickstart.md](quickstart.md), and [contracts/](contracts/).
+
+### Execution dependencies (non-principle)
+
+Tracks execution-level gates that are *specified but not yet materialised* — kept here rather than in the Constitution Check table because these are scheduling facts, not design trade-offs.
+
+- **FR-001 export + SC-004 vanilla-Guardian import**: gated on T037 (GDST build script) and T050 (FSMA build script) executing against a live testnet MGS tenant. T037 is currently **deferred** (no testnet credentials available in the current development session). Until both run, FR-001 and SC-004 are specified but not demonstrably satisfied. Not a constitution violation — the design is complete; execution is pending.
+- **HTTP `202` / `503 VC_MANUAL_REVIEW` surface**: deferred to v2 per spec.md §Assumptions (post-F3 amendment). v1 surfaces the same state only via the Python client's `GuardianClient.get_vc_retrieval_status()` contract.
 
 ### Data model deliverables
 
