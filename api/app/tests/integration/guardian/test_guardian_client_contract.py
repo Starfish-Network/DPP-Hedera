@@ -30,7 +30,8 @@ from app.service.guardian_client import (
     SubmitAck,
     TaskHandle,
 )
-from app.service.schema_mapper import to_credential_subject_gdst
+from app.service.guardian_policies import GDST
+from app.service.schema_mapper import to_credential_subject
 
 SAMPLES_DIR = Path(__file__).resolve().parents[5] / "samples" / "gdst"
 
@@ -207,7 +208,7 @@ def test_gdst_idempotent_submission(mgs_mock: respx.MockRouter):
     exactly one MGS POST to /external/<policy>/<block>.
     """
     sample = _load_sample("fishing")
-    subject = to_credential_subject_gdst(sample, policy_version="1.0.0")
+    subject = to_credential_subject(sample, GDST)
     policy_id = "policy-xyz"
     block_tag = "intake"
 
@@ -254,7 +255,7 @@ def test_gdst_vc_retrieval_history(mgs_mock: respx.MockRouter):
       can audit corrections end-to-end.
     """
     sample = _load_sample("fishing")
-    base_subject = to_credential_subject_gdst(sample, policy_version="1.0.0")
+    base_subject = to_credential_subject(sample, GDST)
     event_hash = base_subject["eventHash"]
     policy_id = "policy-xyz"
 

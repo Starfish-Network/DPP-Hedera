@@ -18,15 +18,12 @@ from app.service.guardian_client import (
     GuardianClient,
     GuardianError,
 )
-from app.service.schema_mapper import to_credential_subject_gdst
+from app.service.guardian_policies import GDST
+from app.service.schema_mapper import to_credential_subject
 from hiero_sdk_python.contract.contract_id import ContractId
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/events", tags=["Events"])
-
-# Semver of the currently-deployed GDST Guardian policy. Bumped in lockstep
-# with schema IRIs when the rule set changes (FR-012).
-_GDST_POLICY_VERSION = "1.0.0"
 
 
 def _maybe_get_guardian_client() -> GuardianClient | None:
@@ -39,8 +36,7 @@ def _maybe_get_guardian_client() -> GuardianClient | None:
         settings.GUARDIAN_API_URL
         and settings.GUARDIAN_SR_USERNAME
         and settings.GUARDIAN_SR_PASSWORD
-        and settings.GUARDIAN_GDST_POLICY_ID
-        and settings.GUARDIAN_GDST_INTAKE_BLOCK_TAG
+        and GDST.enabled
     ):
         return None
     try:
@@ -83,12 +79,12 @@ async def create_gdst_event(evt: GDSTEvent):
     client = _maybe_get_guardian_client()
     if client is not None:
         try:
-            subject = to_credential_subject_gdst(
-                event_dict, policy_version=_GDST_POLICY_VERSION
+            subject = to_credential_subject(
+                event_dict, GDST, event_hash_hex=event_hash_hex
             )
             ack = await client.submit_document(
-                policy_id=settings.GUARDIAN_GDST_POLICY_ID,
-                block_tag=settings.GUARDIAN_GDST_INTAKE_BLOCK_TAG,
+                policy_id=GDST.policy_id,
+                block_tag=GDST.intake_block_tag,
                 document=subject,
             )
             guardian_submission = {

@@ -28,7 +28,8 @@ from app.models.gdst.on_vessel import OnVesselProcessingEvent
 from app.models.gdst.processing import ProcessingEvent
 from app.models.gdst.shipping import ShippingReceivingEvent
 from app.models.gdst.transshipment import TransshipmentEvent
-from app.service.schema_mapper import to_credential_subject_gdst
+from app.service.guardian_policies import GDST
+from app.service.schema_mapper import to_credential_subject
 
 SAMPLES_DIR = Path(__file__).resolve().parents[5] / "samples" / "gdst"
 
@@ -43,7 +44,7 @@ def _assert_valid(model_cls, sample: dict) -> None:
     evt = model_cls(**sample)
     as_dict = evt.model_dump(mode="json")
     assert gdst_min_rules(as_dict) is True
-    subject = to_credential_subject_gdst(evt, policy_version="1.0.0")
+    subject = to_credential_subject(evt, GDST)
     assert subject["eventHash"].startswith("0x")
     assert subject["complianceStatus"] == "compliant"
     assert subject["policyVersion"] == "1.0.0"
