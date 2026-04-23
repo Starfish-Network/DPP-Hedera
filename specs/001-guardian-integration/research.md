@@ -105,7 +105,7 @@ Schema IRIs are semver (`#GDSTFishingEvent&1.0.0`); breaking changes bump the ma
 **Consequences**:
 
 - `FR-012` (schema/policy semver) is owned by the `policy_version` field on each `PolicyConfig`, not by a constant scattered in `events.py` / `compliance.py`.
-- Invariants enforced at registry-construction time (Constitution §II): no two `PolicyConfig` entries may share `source_type_field` (dispatch ambiguity) or `vc_type_field` (downstream-policy discriminator collision).
+- Registry-construction invariants (uniqueness of `source_type_field` and `vc_type_field`) are catalogued in [data-model.md §Policy Registry](data-model.md).
 - Adding a new compliance policy = one entry in `POLICIES` + the matching schemas under `schemas/<slug>/`. No shared-code edits beyond the registry itself.
 - The Guardian client contract is unchanged — it still takes `policy_id: str`. Registry awareness lives in routes and the mapper, not in the wire-layer client.
 

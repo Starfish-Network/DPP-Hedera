@@ -33,6 +33,8 @@ The single slug-parameterised VC route replaces the prior GDST-only / FSMA-only 
 | `503` | Policy configured in registry but env vars missing (`enabled == False`) | `{detail: "Guardian <SLUG> policy is not configured"}` |
 | `400` | Other MGS client error propagated (e.g., malformed `event_hash`) | `{detail: "<error text>"}` |
 
+Exception → HTTP mapping is authoritative in [guardian-client.md §Error taxonomy](guardian-client.md). The table above is the inverse view.
+
 ### `GET /guardian/health`
 
 | Status | Condition | Response body `status` |
@@ -48,13 +50,13 @@ Note: `/guardian/health` returns `200` for **all** status values — the body di
 
 ## Pending / Manual-Review State (v1 scope)
 
-Per spec.md Edge Cases (post-F3 amendment) and SC-007: the `pending` (<30 s post-submission) and `manual_review` (≥300 s) states are **not** exposed over HTTP in v1. They are surfaced through the Python `GuardianClient.get_vc_retrieval_status()` direct-caller contract (see [guardian-client.md](guardian-client.md)). HTTP `202 Accepted` / `503 VC_MANUAL_REVIEW` responses are deferred to v2.
+v2 deferral per [spec.md §Edge Cases + §Assumptions](../spec.md). Thresholds and state semantics owned by [guardian-client.md §VC retrieval](guardian-client.md).
 
 ---
 
 ## Body-level Error Codes (not HTTP status)
 
-Acceptance-scenario error codes such as `GDST_MISSING_FISHING_AUTHORIZATION`, `FSMA_MISSING_SHIP_TO` are **FastAPI response-body error codes** emitted by `/events` endpoints on pre-check failure, not by this `/guardian/*` surface. Each maps 1:1 to a rule ID in [data-model.md §2 Rule Source Table](../data-model.md). The concrete HTTP-code ↔ rule-ID mapping lives next to `api/app/helpers/compliance.py` and is produced during `/speckit-implement` (spec.md §"Error-code convention").
+Acceptance-scenario codes (`GDST_MISSING_FISHING_AUTHORIZATION`, `FSMA_MISSING_SHIP_TO`, …) are emitted by `/events` endpoints on pre-check failure, not by this `/guardian/*` surface. See [spec.md §"Error-code convention"](../spec.md).
 
 ---
 

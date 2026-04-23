@@ -51,7 +51,7 @@ No principle is in tension. Complexity Tracking table remains empty.
 
 ### Post-refactor re-check (2026-04-24, after `PolicyConfig` registry spec update)
 
-The four-file spec update that introduced [research.md §8](research.md) (registry vs. env-scatter), the Policy Registry entity in [data-model.md](data-model.md), the Phase 1 design bullet above, and the tasks.md T036a refactor task touches Principle VI directly and Principle II indirectly. Re-check:
+The `PolicyConfig` registry spec update touches Principle VI directly and Principle II indirectly. Re-check:
 
 | Principle | Re-check after registry spec update | Status |
 |-----------|-------------------------------------|--------|
@@ -84,10 +84,9 @@ Tracks execution-level gates that are *specified but not yet materialised* — k
 
 ### Data model deliverables
 
-- `data-model.md` §Entities: GDST CTE, FSMA event, VC, SR, Operator, **Policy Registry (`PolicyConfig`)**.
+- `data-model.md` §Entities: GDST CTE, FSMA event, VC, SR, Operator, **[Policy Registry (`PolicyConfig`)](data-model.md)** — frozen config per compliance policy, drives the generic `schema_mapper.to_credential_subject(event, policy, ...)` and the slug-parameterised `GET /guardian/{slug}/vc/{event_hash}` route. Rationale in [research.md §8](research.md).
 - `data-model.md` §Rule Source Table: per-event-type rules cross-referencing `compliance.py` and Guardian policy blocks.
 - `data-model.md` §Schema Map: one row per JSON-LD schema with source Pydantic model.
-- **Per-policy config lives in code, not scattered env vars**: `api/app/service/guardian_policies.py` holds a frozen `PolicyConfig` per compliance policy. Drives a single generic `schema_mapper.to_credential_subject(event, policy, ...)` mapper and a single policy-slug-parameterised `GET /guardian/{slug}/vc/{event_hash}` route. Rationale + alternatives in [research.md §8](research.md); invariants in [data-model.md §Policy Registry](data-model.md).
 
 ### Contract deliverables
 
