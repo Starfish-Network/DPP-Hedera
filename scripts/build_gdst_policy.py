@@ -7,11 +7,11 @@ Flow (per research.md §3, quickstart.md §3-4):
     1. login() as Standard Registry
     2. POST /policies with a minimal draft -> get {policyId, topicId}
     3. POST /schemas/{topicId} with schemas/gdst/compliance-intake.json
-    4. PUT /schemas/push/{schemaId}/publish -> wait_for_task
+    4. PUT /schemas/push/{schemaId}/publish -> wait_for_task (up to 10 min)
     5. PUT /policies/{policyId} with the full block tree (root ->
        externalDataBlock -> sendToGuardianBlock), schema refs resolved to
        MGS-assigned UUIDs
-    6. PUT /policies/push/{policyId}/publish -> wait_for_task (120 s)
+    6. PUT /policies/push/{policyId}/publish -> wait_for_task (up to 10 min)
     7. GET /policies/{policyId}/export/file ->
        schemas/policies/gdst-seafood-traceability.policy
     8. Print policyId + intake block tag for .env.dev
@@ -19,10 +19,14 @@ Flow (per research.md §3, quickstart.md §3-4):
 Runs against live MGS. Requires GUARDIAN_API_URL / GUARDIAN_SR_USERNAME /
 GUARDIAN_SR_PASSWORD in the environment (load .env.dev before running).
 
-Intentionally NOT idempotent on a per-tenant basis: if a policy with the
-same `policyTag` already exists the script aborts and asks the operator to
-delete it first from the MGS portal. Re-provisioning a published policy is
-out of scope for v1 — schema IRIs are bumped instead (research.md §3).
+--resume: if a prior run died between steps 4 and 5 (e.g., wait_for_task
+expired while the schema publish was still in flight), re-run with --resume
+to skip 1-4 and pick up at step 5 against the existing DRAFT policy.
+
+Intentionally NOT idempotent on a per-tenant basis: if a non-DRAFT policy
+with the same policyTag already exists the script aborts and asks the
+operator to discontinue it from the MGS portal first (published policies
+are on-chain and immutable).
 """
 from __future__ import annotations
 
@@ -53,11 +57,17 @@ POLICY_DESCRIPTION = (
     "Cross-party ruleset compliance for GDST 1.2 critical tracking events. "
     "Issues GDSTComplianceCredential VCs for events submitted via FastAPI."
 )
-POLICY_TAG = "GDST-1-2-seafood"
+POLICY_TAG = "GDST-1-2-seafood-v2"
 POLICY_VERSION = "1.0.0"
 INTAKE_BLOCK_TAG = "gdst_intake"
 ISSUE_BLOCK_TAG = "gdst_issue_vc"
 ROOT_BLOCK_TAG = "gdst_root"
+
+# Hedera testnet schema/policy publish can take 3-8 minutes when the mirror
+# node is lagging. A 120s cap (our client default) routinely expires while
+# the async task is still healthy server-side, leaving the tenant in a half-
+# bootstrapped state (see scripts/build_gdst_policy.py --resume).
+PUBLISH_TIMEOUT_S = 600.0
 
 
 def _new_id() -> str:
@@ -201,6 +211,31 @@ def _pick_created(records: list[dict[str, Any]], *, by: str, value: str) -> dict
     )
 
 
+async def _finalize(
+    client: GuardianClient, policy_id: str, intake_iri: str
+) -> dict[str, str]:
+    """Steps 5-7: PUT full config, publish policy, export .policy."""
+    print("5. Update policy with full config tree...")
+    current = await client.get_policy(policy_id)
+    current["config"] = _full_config(intake_iri)
+    await client.update_policy(policy_id, current)
+
+    print(f"6. Publish policy (async, up to {int(PUBLISH_TIMEOUT_S / 60)} min)...")
+    task = await client.publish_policy(policy_id, policy_version=POLICY_VERSION)
+    result = await client.wait_for_task(task.taskId, timeout=PUBLISH_TIMEOUT_S)
+    if result.status != "COMPLETED":
+        raise RuntimeError(f"Policy publish failed: {result.error}")
+
+    print(f"7. Export policy to {EXPORT_PATH.relative_to(REPO_ROOT)}...")
+    await client.export_policy(policy_id, EXPORT_PATH)
+
+    return {
+        "policyId": policy_id,
+        "intakeBlockTag": INTAKE_BLOCK_TAG,
+        "exportPath": str(EXPORT_PATH),
+    }
+
+
 async def bootstrap(client: GuardianClient, *, dry_run: bool = False) -> dict[str, str]:
     intake_base = json.loads(INTAKE_SCHEMA_PATH.read_text())
 
@@ -235,41 +270,74 @@ async def bootstrap(client: GuardianClient, *, dry_run: bool = False) -> dict[st
     schemas = await client.create_schema(topic_id, schema_dto)
     created_schema = _pick_created(schemas, by="name", value="GDSTComplianceIntake")
     schema_id = created_schema["id"]
-    # MGS may rewrite the IRI (e.g., adding a version suffix); prefer its
-    # response over the one we generated.
     schema_uuid = created_schema.get("iri") or intake_iri
     print(f"   schemaId={schema_id}, iri={schema_uuid}")
 
-    print("4. Publish schema (async)...")
+    print(f"4. Publish schema (async, up to {int(PUBLISH_TIMEOUT_S / 60)} min)...")
     task = await client.publish_schema(schema_id, version=POLICY_VERSION)
-    result = await client.wait_for_task(task.taskId, timeout=120.0)
+    result = await client.wait_for_task(task.taskId, timeout=PUBLISH_TIMEOUT_S)
     if result.status != "COMPLETED":
-        raise RuntimeError(f"Schema publish failed: {result.error}")
-    # Re-fetch to get the final IRI (MGS rewrites it on publish).
-    published_policy = await client.get_policy(policy_id)
-    # Some MGS versions embed the schema IRI on the schema record; fall back
-    # to the one we stored pre-publish.
-    intake_iri = schema_uuid
+        raise RuntimeError(
+            f"Schema publish failed: {result.error}. "
+            f"If the task is still running server-side, re-run with --resume."
+        )
 
-    print("5. Update policy with full config tree...")
-    full = dict(published_policy)
-    full["config"] = _full_config(intake_iri)
-    await client.update_policy(policy_id, full)
+    return await _finalize(client, policy_id, schema_uuid)
 
-    print("6. Publish policy (async, up to 2 min)...")
-    task = await client.publish_policy(policy_id, policy_version=POLICY_VERSION)
-    result = await client.wait_for_task(task.taskId, timeout=300.0)
-    if result.status != "COMPLETED":
-        raise RuntimeError(f"Policy publish failed: {result.error}")
 
-    print(f"7. Export policy to {EXPORT_PATH.relative_to(REPO_ROOT)}...")
-    await client.export_policy(policy_id, EXPORT_PATH)
+async def resume(client: GuardianClient) -> dict[str, str]:
+    """
+    Recover from a partial bootstrap: skip steps 1-4, look up the existing
+    DRAFT policy by tag and its already-published intake schema, then do
+    steps 5-7.
 
-    return {
-        "policyId": policy_id,
-        "intakeBlockTag": INTAKE_BLOCK_TAG,
-        "exportPath": str(EXPORT_PATH),
-    }
+    Use when a prior run died between steps 4 and 5 (e.g., wait_for_task
+    expired during schema publish on slow testnet). Aborts clearly if the
+    policy is already PUBLISHED — published policies are on-chain immutable,
+    so recovery from that state requires discontinuing in the portal and
+    re-running without --resume (bump POLICY_TAG if MGS rejects re-use).
+    """
+    print("1. Login...")
+    await client.login()
+
+    print(f"2. Look up policy by tag {POLICY_TAG!r}...")
+    policies = await client.list_policies()
+    matches = [p for p in policies if p.get("policyTag") == POLICY_TAG]
+    if not matches:
+        raise RuntimeError(
+            f"no policy with policyTag={POLICY_TAG!r} found — run without --resume first"
+        )
+    # Last wins if MGS holds multiple drafts under the same tag (rare; the
+    # unique index at mgs_policyTag_tenantId_u normally prevents it).
+    policy = matches[-1]
+    status = policy.get("status")
+    if status != "DRAFT":
+        raise RuntimeError(
+            f"policy {policy['id']} has status={status!r}; --resume requires DRAFT. "
+            "If the policy was accidentally published with a stub config, "
+            "discontinue it in the MGS portal and re-run without --resume "
+            "(bump POLICY_TAG if MGS rejects re-using the tag)."
+        )
+    policy_id = policy["id"]
+    topic_id = policy.get("topicId") or policy.get("instanceTopicId")
+    print(f"   policyId={policy_id}, topicId={topic_id}")
+
+    print("3. Find published intake schema under topic...")
+    schemas = await client.list_schemas(topic_id)
+    intakes = [
+        s for s in schemas
+        if s.get("name") == "GDSTComplianceIntake" and s.get("status") == "PUBLISHED"
+    ]
+    if not intakes:
+        seen = [(s.get("name"), s.get("status")) for s in schemas]
+        raise RuntimeError(
+            f"no PUBLISHED GDSTComplianceIntake in topic {topic_id}; seen={seen}. "
+            "Schema may still be publishing; wait and retry."
+        )
+    intake_iri = intakes[-1].get("iri")
+    print(f"   intake_iri={intake_iri}")
+
+    return await _finalize(client, policy_id, intake_iri)
 
 
 def _load_client_from_env() -> GuardianClient:
@@ -293,15 +361,32 @@ def main() -> None:
         action="store_true",
         help="Print the draft policy + full config JSON without calling MGS.",
     )
+    parser.add_argument(
+        "--resume",
+        action="store_true",
+        help=(
+            "Skip policy/schema creation; look up the existing DRAFT policy "
+            "by tag and its already-published intake schema, then do steps "
+            "5-7. Use after a mid-run failure left the policy in DRAFT."
+        ),
+    )
     args = parser.parse_args()
+
+    if args.dry_run and args.resume:
+        raise SystemExit("--dry-run and --resume are mutually exclusive")
 
     client = _load_client_from_env()
     try:
-        result = asyncio.run(bootstrap(client, dry_run=args.dry_run))
+        if args.resume:
+            result = asyncio.run(resume(client))
+        else:
+            result = asyncio.run(bootstrap(client, dry_run=args.dry_run))
     except GuardianClientError as e:
         raise SystemExit(f"MGS rejected a request: {e}")
     except GuardianError as e:
         raise SystemExit(f"Guardian client error: {e}")
+    except RuntimeError as e:
+        raise SystemExit(f"Bootstrap error: {e}")
 
     if args.dry_run:
         return

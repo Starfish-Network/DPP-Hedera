@@ -59,10 +59,14 @@ v2 will reintroduce `register_user`, `set_user_credentials`, and `get_user_did` 
 ```python
 async def create_schema(self, schema: dict) -> SchemaRecord                          # POST /schemas (sync)
 async def publish_schema(self, schema_id: str) -> TaskHandle                         # PUT /schemas/push/{id}/publish
+async def list_schemas(self, topic_id: str) -> list[dict]                            # GET /schemas/{topicId}
 async def create_policy(self, policy: dict) -> PolicyRecord                          # POST /policies (sync)
+async def list_policies(self) -> list[dict]                                          # GET /policies
 async def publish_policy(self, policy_id: str) -> TaskHandle                         # PUT /policies/push/{id}/publish
 async def export_policy(self, policy_id: str, out_path: Path) -> Path                # GET /policies/{id}/export/file → .policy zip
 ```
+
+`list_policies` and `list_schemas` return a single page (pageSize=200); used by bootstrap scripts for tag/schema lookup after partial runs.
 
 `TaskHandle` is `{ task_id: str, submitted_at: datetime }`. `wait_for_task` (below) drives the polling loop.
 

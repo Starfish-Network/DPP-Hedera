@@ -385,15 +385,35 @@ class GuardianClient:
             if err is not None:
                 raise err
             data = r.json()
-            result = TaskResult(
-                taskId=data.get("taskId", task_id),
-                status=data.get("status"),
-                result=data.get("result"),
-                error=data.get("error"),
-            )
-            if result.status not in ("COMPLETED", "FAILED"):
-                raise _TaskNotReady()
-            return result
+            tid = data.get("taskId", task_id)
+            res = data.get("result")
+
+            def _make(status: str, error: Any = None) -> TaskResult:
+                return TaskResult(taskId=tid, status=status, result=res, error=error)
+
+            # MGS wraps completion under info.{completed,failed} and surfaces
+            # errors as a top-level {code,message}; stock Guardian returns a
+            # flat {status}. Check both so polls fail fast on MGS errors.
+            info = data.get("info") or {}
+            top_error = data.get("error")
+            if top_error or info.get("failed"):
+                err_msg = (
+                    top_error.get("message") or str(top_error)
+                    if isinstance(top_error, dict)
+                    else top_error
+                )
+                return _make("FAILED", err_msg)
+            if info.get("completed"):
+                return _make("COMPLETED")
+            # MGS testnet bug: top-level info.completed stays false even after
+            # every step.completed flips true. Treat "all steps done" as done.
+            steps = info.get("steps") or []
+            if steps and all(s.get("completed") and not s.get("failed") for s in steps):
+                return _make("COMPLETED")
+            flat_status = data.get("status")
+            if flat_status in ("COMPLETED", "FAILED"):
+                return _make(flat_status)
+            raise _TaskNotReady()
 
         try:
             async for attempt in AsyncRetrying(
@@ -471,6 +491,31 @@ class GuardianClient:
             cached=False,
         )
 
+    @staticmethod
+    def _unwrap_list_body(body: Any) -> list[dict[str, Any]]:
+        """MGS returns either a bare list or {items|data: [...]} — handle both."""
+        if isinstance(body, list):
+            return body
+        if isinstance(body, dict):
+            return body.get("items") or body.get("data") or []
+        return []
+
+    async def list_policies(self, *, page_size: int = 200) -> list[dict[str, Any]]:
+        """GET /policies — single page. Tenants realistically hold <200 policies."""
+        r = await self._authed_call(
+            "GET", "/policies", params={"pageSize": page_size}
+        )
+        return self._unwrap_list_body(r.json())
+
+    async def list_schemas(
+        self, topic_id: str, *, page_size: int = 200
+    ) -> list[dict[str, Any]]:
+        """GET /schemas/{topicId} — single page."""
+        r = await self._authed_call(
+            "GET", f"/schemas/{topic_id}", params={"pageSize": page_size}
+        )
+        return self._unwrap_list_body(r.json())
+
     async def _list_vcs_for_policy(self, policy_id: str) -> list[VCDocument]:
         """GET /policies/{id}/documents?type=VC with in-memory pagination."""
         results: list[VCDocument] = []
@@ -485,12 +530,7 @@ class GuardianClient:
             err = self._classify(r)
             if err is not None:
                 raise err
-            body = r.json()
-            # MGS returns either a bare list or {items: [...], total: N}; handle both.
-            if isinstance(body, dict):
-                items = body.get("items") or body.get("data") or []
-            else:
-                items = list(body)
+            items = self._unwrap_list_body(r.json())
             if not items:
                 break
             results.extend(items)
