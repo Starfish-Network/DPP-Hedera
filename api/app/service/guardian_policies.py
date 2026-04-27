@@ -48,16 +48,31 @@ GDST = PolicyConfig(
     required_hoists={"species": "what.species"},
 )
 
-# Registration-only stub until T047 fills type_map + required_hoists and
-# T048 wires POST /events/epcis/compliance through it. Kept here so the
-# registry invariants exercise both policies.
+# `source_type_field="eventType"` matches the existing Pydantic model
+# (api/app/models/starfish_events.py uses camelCase `eventType`). The
+# data-model.md spec lists `fsma204_event_type` as the conventional name
+# for symmetry with GDST's `gdst_event_type`; reconciling that requires
+# renaming `eventType` across ~20 call sites and is deferred to v2.
+# Registry invariant (uniqueness across policies) still holds: GDST uses
+# `gdst_event_type`, FSMA uses `eventType`.
+#
+# `type_map={}` is intentional — the VC schema's `fsma204EventType` enum
+# is lowercase (creating, shipping, …) matching the Pydantic Literal
+# values directly, so no source→VC label mapping is needed.
+#
+# `required_hoists={}` — `vc-output.schema.json`'s
+# `FSMA204ComplianceCredential` branch declares no required top-level
+# subject fields beyond `GuaranteedMetadata` + `fsma204EventType`, both
+# stamped by the generic mapper.
 FSMA = PolicyConfig(
     slug="fsma",
     policy_id=settings.GUARDIAN_FSMA_POLICY_ID,
     intake_block_tag=settings.GUARDIAN_FSMA_INTAKE_BLOCK_TAG,
     policy_version="1.0.0",
-    source_type_field="fsma204_event_type",
+    source_type_field="eventType",
     vc_type_field="fsma204EventType",
+    type_map={},
+    required_hoists={},
 )
 
 
