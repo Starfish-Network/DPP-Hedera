@@ -371,6 +371,52 @@ def test_create_policy_posts_and_returns_list(mgs_mock: respx.MockRouter):
     assert route.called
 
 
+def test_list_policies_unwraps_items_envelope(mgs_mock: respx.MockRouter):
+    """list_policies handles MGS's {items: [...]} envelope shape."""
+    items = [
+        {"id": "pol-1", "policyTag": "GDST-1-2-seafood-v2", "status": "PUBLISH"},
+        {"id": "pol-2", "policyTag": "FSMA-204-v1", "status": "DRAFT"},
+    ]
+    route = mgs_mock.get("/policies").mock(
+        return_value=httpx.Response(200, json={"items": items, "total": 2})
+    )
+
+    async def scenario():
+        client = _make_client()
+        await client.login()
+        return await client.list_policies()
+
+    records = _run(scenario())
+    assert records == items
+    assert route.called
+    assert dict(route.calls.last.request.url.params) == {"pageSize": "200"}
+
+
+def test_list_schemas_handles_bare_list_response(mgs_mock: respx.MockRouter):
+    """list_schemas handles the bare-list response shape (alternative to envelope)."""
+    schemas = [
+        {
+            "id": "sch-1",
+            "name": "GDSTComplianceIntake",
+            "status": "PUBLISHED",
+            "iri": "#abc&1.0.2",
+        },
+    ]
+    topic_id = "0.0.8763255"
+    route = mgs_mock.get(f"/schemas/{topic_id}").mock(
+        return_value=httpx.Response(200, json=schemas)
+    )
+
+    async def scenario():
+        client = _make_client()
+        await client.login()
+        return await client.list_schemas(topic_id)
+
+    records = _run(scenario())
+    assert records == schemas
+    assert route.called
+
+
 def test_publish_policy_sends_version_and_returns_handle(mgs_mock: respx.MockRouter):
     route = mgs_mock.put("/policies/push/pol-1/publish").mock(
         return_value=httpx.Response(200, json={"taskId": "task-pub-pol"})

@@ -1,12 +1,14 @@
 """
 Fixtures for Guardian integration tests.
 
-Contract: mocked MGS responses are the default; set GUARDIAN_LIVE=1 to hit a real
-MGS tenant (see specs/001-guardian-integration/quickstart.md §7).
+The mock base URL is pinned to a sentinel host so sourcing `.env.dev` (which
+sets GUARDIAN_API_URL=guardianservice.app for the FastAPI runtime) doesn't
+redirect respx to a different host than the tests' own `_make_client()`
+target. Live-MGS mode is a planned future feature and will be a separate
+test path, not an env-var override on this fixture.
 """
 from __future__ import annotations
 
-import os
 from typing import Iterator
 
 import httpx
@@ -15,7 +17,7 @@ import respx
 
 pytestmark = pytest.mark.integration
 
-MGS_BASE_URL = os.environ.get("GUARDIAN_API_URL", "https://mgs.test/api/v1")
+MGS_BASE_URL = "https://mgs.test/api/v1"
 
 
 @pytest.fixture
