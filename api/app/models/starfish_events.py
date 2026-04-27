@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import List, Optional, Union
+from typing import List, Literal, Optional, Union
 
 class QuantityItem(BaseModel):
     epc: str = Field(..., example="urn:epc:class:lgtin:9506000.1233.a")
@@ -12,45 +12,45 @@ class BaseEvent(BaseModel):
 
 # Creating event
 class CreatingEvent(BaseEvent):
-    eventType: str = Field("creating", Literal=True)
+    eventType: Literal["creating"] = "creating"
     biz_location: str = Field(..., example="9506001112229")
-    quantity_list: List[QuantityItem]
+    quantity_list: List[QuantityItem] = Field(..., min_length=1)
 
 # Shipping event
 class ShippingEvent(BaseEvent):
-    eventType: str = Field("shipping", Literal=True)
+    eventType: Literal["shipping"] = "shipping"
     ship_from: str
     ship_to: str
-    items: List[QuantityItem]
+    items: List[QuantityItem] = Field(..., min_length=1)
 
 # Receiving event
 class ReceivingEvent(BaseEvent):
-    eventType: str = Field("receiving", Literal=True)
+    eventType: Literal["receiving"] = "receiving"
     shipped_from: str
     received_at: str
-    items: List[QuantityItem]
+    items: List[QuantityItem] = Field(..., min_length=1)
 
 # Transforming event
 class TransformingEvent(BaseEvent):
-    eventType: str = Field("transforming", Literal=True)
+    eventType: Literal["transforming"] = "transforming"
     facility: str
     transformation_id: Optional[str] = None
-    input_items: List[QuantityItem]
-    output_items: List[QuantityItem]
+    input_items: List[QuantityItem] = Field(..., min_length=1)
+    output_items: List[QuantityItem] = Field(..., min_length=1)
 
 # Packing event
 class PackingEvent(BaseEvent):
-    eventType: str = Field("packing", Literal=True)
+    eventType: Literal["packing"] = "packing"
     facility: str
     container_id: str
-    input_items: List[QuantityItem]
+    input_items: List[QuantityItem] = Field(..., min_length=1)
 
 # Unpacking event
 class UnpackingEvent(BaseEvent):
-    eventType: str = Field("unpacking", Literal=True)
+    eventType: Literal["unpacking"] = "unpacking"
     facility: str
     container_id: str
-    output_items: List[QuantityItem]
+    output_items: List[QuantityItem] = Field(..., min_length=1)
 
 StarfishEvent = Union[
     CreatingEvent,

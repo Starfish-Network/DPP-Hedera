@@ -16,11 +16,10 @@ def fsma_min_rules(evt: Dict[str, Any]) -> bool:
         return bool(evt.get("biz_location") and evt.get("quantity_list"))
 
     if et == "shipping":
-        return bool(evt.get("shipFrom") and evt.get("shipTo") and evt.get("items"))
+        return bool(evt.get("ship_from") and evt.get("ship_to") and evt.get("items"))
 
     if et == "receiving":
-        # Starfish sometimes uses shippedFrom/receivedAt
-        return bool((evt.get("receivedAt") or evt.get("shipTo")) and evt.get("items"))
+        return bool((evt.get("received_at") or evt.get("ship_to")) and evt.get("items"))
 
     if et == "transforming":
         return bool(evt.get("facility") and evt.get("input_items") and evt.get("output_items"))

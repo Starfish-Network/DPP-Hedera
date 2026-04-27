@@ -14,7 +14,7 @@ def test_post_shipping_event(client):
         }]
     }
 
-    response = client.post("/api/v1/events", json=payload)
+    response = client.post("/api/v1/epcis/events", json=payload)
     assert response.status_code == 200
 
     data = response.json()

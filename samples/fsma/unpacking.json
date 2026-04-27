@@ -1,0 +1,14 @@
+{
+  "eventType": "unpacking",
+  "event_time": "2026-04-27T17:00:00.000Z",
+  "event_timezone_offset": "+00:00",
+  "facility": "9506001112231",
+  "container_id": "CONT-9506-2026-0001",
+  "output_items": [
+    {
+      "epc": "urn:epc:class:lgtin:9506000.1234.b",
+      "quantity": 8.0,
+      "unit_of_measurement": "kg"
+    }
+  ]
+}

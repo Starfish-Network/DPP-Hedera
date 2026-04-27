@@ -1,0 +1,14 @@
+{
+  "eventType": "shipping",
+  "event_time": "2026-04-27T11:30:00.000Z",
+  "event_timezone_offset": "+00:00",
+  "ship_from": "9506001112229",
+  "ship_to": "9506001112230",
+  "items": [
+    {
+      "epc": "urn:epc:class:lgtin:9506000.1233.a",
+      "quantity": 12.0,
+      "unit_of_measurement": "kg"
+    }
+  ]
+}
