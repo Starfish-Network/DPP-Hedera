@@ -1,48 +1,23 @@
 import base64
 import datetime
 import json
-import logging
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, File, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
 from app.service.ipfs import download_from_ipfs, upload_to_ipfs
-from app.core.client import get_client
 from app.helpers.compliance import sha256_bytes32
 from app.service.hedera import hedera_contract_attach_file, hedera_contract_get_data_key, hedera_contract_get_files, hedera_post_transaction
 from app.core.kms import get_kms
 from app.crypto.encryption import envelope_encrypt, file_envelope_decrypt, file_envelope_encrypt
 from app.models.gdst.base import GDSTEvent
 from app.core.config import settings
-from app.routes.guardian.identity import get_guardian_client
-from app.service.guardian_client import (
-    GuardianBreakerOpen,
-    GuardianClient,
-    GuardianError,
+from app.service.guardian_forwarder import (
+    forward_event_to_guardian,
+    maybe_get_guardian_client,
 )
 from app.service.guardian_policies import GDST
-from app.service.schema_mapper import to_credential_subject
 from hiero_sdk_python.contract.contract_id import ContractId
 
-logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/events", tags=["Events"])
-
-
-def _maybe_get_guardian_client() -> GuardianClient | None:
-    """Return the client if Guardian is configured, else None.
-
-    Keeps the /events hot path working when Guardian is disabled or partially
-    configured — events still land on HCS (Constitution §IV).
-    """
-    if not (
-        settings.GUARDIAN_API_URL
-        and settings.GUARDIAN_SR_USERNAME
-        and settings.GUARDIAN_SR_PASSWORD
-        and GDST.enabled
-    ):
-        return None
-    try:
-        return get_guardian_client()
-    except HTTPException:
-        return None
 
 
 @router.post("", summary="Receive GDST event -> encrypt -> write to Hedera -> submit to Guardian")
@@ -74,38 +49,13 @@ async def create_gdst_event(evt: GDSTEvent):
     event_hash = sha256_bytes32(event_dict)
     event_hash_hex = "0x" + event_hash.hex()
 
-    # --- Guardian forwarding (non-blocking on hot path, Constitution §IV) ---
+    # Guardian forwarding (non-blocking, Constitution §IV)
     guardian_submission: dict = {"status": "skipped", "reason": "not_configured"}
-    client = _maybe_get_guardian_client()
+    client = maybe_get_guardian_client(GDST)
     if client is not None:
-        try:
-            subject = to_credential_subject(
-                event_dict, GDST, event_hash_hex=event_hash_hex
-            )
-            ack = await client.submit_document(
-                policy_id=GDST.policy_id,
-                block_tag=GDST.intake_block_tag,
-                document=subject,
-            )
-            guardian_submission = {
-                "status": "submitted",
-                "cached": ack.cached,
-                "submittedAt": ack.submitted_at.isoformat(),
-            }
-        except GuardianBreakerOpen:
-            # T054 (US3) will expand this into a structured WARN with the
-            # full {event_hash, operator_did, mgs_error_class, breaker_opened_at}
-            # payload. For now keep the HCS path unblocked.
-            logger.warning(
-                "guardian.skipped", extra={"event_hash": event_hash_hex, "reason": "breaker_open"}
-            )
-            guardian_submission = {"status": "skipped", "reason": "breaker_open"}
-        except GuardianError as e:
-            logger.warning(
-                "guardian.error",
-                extra={"event_hash": event_hash_hex, "error": e.__class__.__name__},
-            )
-            guardian_submission = {"status": "error", "reason": e.__class__.__name__}
+        guardian_submission = await forward_event_to_guardian(
+            client, GDST, event_dict, event_hash_hex
+        )
 
     return {
         "status": "ok",
