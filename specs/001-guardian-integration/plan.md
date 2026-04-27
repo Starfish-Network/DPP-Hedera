@@ -60,6 +60,18 @@ The `PolicyConfig` registry spec update touches Principle VI directly and Princi
 
 All other principles unchanged from the post-clarifications re-check. Complexity Tracking table remains empty.
 
+### Post-T037-shipping re-check (2026-04-27, after `scripts/build_gdst_policy.py` ran on testnet)
+
+T037 shipped a simpler topology than originally specified: one envelope-intake schema (`GDSTComplianceIntake`) instead of 7 per-CTE schemas attached to the policy, and `externalDataBlock` → `sendToGuardianBlock` instead of the three-block pipeline.
+
+| Principle | Status after T037 simplification |
+|-----------|----------------------------------|
+| III. Dual compliance logic | **Pass with documented exemption** — constitution v0.2.0 carries the v1 exemption; FR-003 references it. v2 will reattach per-rule compliance blocks. |
+| V. Test-First | Pass with pending follow-up — `list_policies` / `list_schemas` added in the /simplify pass still need contract tests (flagged in the latest `/speckit-analyze`). |
+| I, II, IV, VI | Unchanged from the post-clarifications re-check. The envelope-intake topology preserves the VC wire format, the `GuaranteedMetadata` fields, and the `.policy` export's portability to vanilla Guardian. |
+
+Complexity Tracking remains empty — the §III exemption lives in the constitution, not a per-feature entry.
+
 ## Phase 0 — Research
 
 Produced in [research.md](research.md). Resolves the four open decisions from Constitution §Open Decisions:

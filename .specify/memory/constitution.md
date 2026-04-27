@@ -14,7 +14,9 @@ Schemas are versioned with IRIs of the form `#<EventType>&<semver>` and are self
 
 ### III. Dual Compliance Logic Is Intentional
 
-Compliance rules live in two places on purpose: (a) `api/app/helpers/compliance.py` for fast rejection at the FastAPI boundary, and (b) the Guardian policy for auditable VC issuance. The two MUST stay in sync — any change to one is a change to both, verified by a shared test fixture set. Removing the FastAPI pre-check to "simplify" is a violation; so is letting the Guardian policy drift from the Pydantic rules. Both sides share the same rule source table in `data-model.md` and the same pass/fail fixtures under `api/app/tests/fixtures/guardian/`.
+Compliance rules live primarily in `api/app/helpers/compliance.py` for fast rejection at the FastAPI boundary; ideally they are *also* encoded in the Guardian policy as compliance blocks for auditable in-policy enforcement. The Pydantic rules and the rule list in `data-model.md` are the canonical source of truth — any change to either MUST be reflected in the other, verified by the shared test fixture set under `api/app/tests/fixtures/guardian/`. Removing the FastAPI pre-check to "simplify" is a violation.
+
+**v1 exemption (2026-04-27, ratified at v0.2.0)**: the GDST and FSMA Guardian policies built by `scripts/build_*_policy.py` ship with a single envelope-intake schema (`GDSTComplianceIntake` / `FSMA204ComplianceIntake`) and **no per-rule compliance blocks**. Rule enforcement lives in `gdst_min_rules()` / `fsma_min_rules()` only; the Guardian policy is the issuer, not the validator. The trust anchor for a `compliant`-status VC is (a) the SR DID as issuer and (b) the FastAPI pre-check having admitted the event. Re-introducing per-rule Guardian compliance blocks is tracked under v2 and will restore in-policy auditability. This exemption applies to v1 only.
 
 ### IV. Core Flows Never Block On Guardian
 
@@ -58,4 +60,8 @@ These are called out so they are not quietly assumed during planning. Each MUST 
 
 This constitution supersedes ad-hoc preferences. Amendments require: (a) a PR editing this file, (b) a one-sentence rationale in the PR description, (c) bumping the version below. Breaking amendments (removing or weakening a core principle) require a migration note in the PR describing how in-flight specs should adapt.
 
-**Version**: 0.1.0 | **Ratified**: 2026-04-20 | **Last Amended**: 2026-04-20
+**Version**: 0.2.0 | **Ratified**: 2026-04-20 | **Last Amended**: 2026-04-27
+
+**Amendment log**:
+
+- **0.2.0 (2026-04-27)** — Weakening of §III: documented v1 exemption acknowledging that the shipped GDST policy (and the FSMA policy built by the same `scripts/build_*_policy.py` flow) issue VCs against an envelope-intake schema with no per-rule Guardian compliance blocks. Migration: in-flight spec `001-guardian-integration` updated FR-002 and FR-003 to reflect the simplified topology; T037 task text already documents the deviation. v2 will restore in-policy enforcement.
