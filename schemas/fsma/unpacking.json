@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "#FSMA204UnpackingEvent&1.0.0",
+  "title": "FSMA 204 Unpacking Event",
+  "description": "Source Pydantic: api/app/models/starfish_events.py::UnpackingEvent. Rules: FSMA_COMMON_001, FSMA_UNPACKING_001-003.",
+  "type": "object",
+  "required": ["eventType", "event_time", "facility", "container_id", "output_items"],
+  "properties": {
+    "eventType": { "const": "unpacking" },
+    "event_time": { "type": "string", "format": "date-time" },
+    "event_timezone_offset": { "type": "string", "pattern": "^[+-]\\d{2}:\\d{2}$" },
+    "facility": { "type": "string", "minLength": 1 },
+    "container_id": { "type": "string", "minLength": 1 },
+    "output_items": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["epc", "quantity", "unit_of_measurement"],
+        "properties": {
+          "epc": { "type": "string", "minLength": 1 },
+          "quantity": { "type": "number" },
+          "unit_of_measurement": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  }
+}
