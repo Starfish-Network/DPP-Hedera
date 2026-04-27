@@ -106,7 +106,7 @@
 
 ### Implementation for User Story 2
 
-- [ ] T040 [P] [US2] Write [schemas/fsma/creating.json](schemas/fsma/creating.json) (IRI `#FSMA204CreatingEvent&1.0.0`, `FSMA_CREATING_*`).
+- [X] T040 [P] [US2] Wrote [schemas/fsma/creating.json](schemas/fsma/creating.json) — IRI `#FSMA204CreatingEvent&1.0.0`. Enforces FSMA_COMMON_001 (event_time required), FSMA_CREATING_001 (biz_location required), FSMA_CREATING_002 (quantity_list `minItems: 1`). Discriminator field is `eventType` (camelCase) to match the existing `starfish_events.py::CreatingEvent` model — the snake_case rename to `fsma204_event_type` for registry-side consistency is still tracked under T047. Validated against [samples/fsma/creating.json](samples/fsma/creating.json): valid sample passes, empty `quantity_list` / missing `biz_location` / wrong `eventType` all rejected.
 - [ ] T041 [P] [US2] Write [schemas/fsma/shipping.json](schemas/fsma/shipping.json) (IRI `#FSMA204ShippingEvent&1.0.0`, `FSMA_SHIPPING_*`).
 - [ ] T042 [P] [US2] Write [schemas/fsma/receiving.json](schemas/fsma/receiving.json) (IRI `#FSMA204ReceivingEvent&1.0.0`, `FSMA_RECEIVING_*`).
 - [ ] T043 [P] [US2] Write [schemas/fsma/transforming.json](schemas/fsma/transforming.json) (IRI `#FSMA204TransformingEvent&1.0.0`, `FSMA_TRANSFORMING_*`).
