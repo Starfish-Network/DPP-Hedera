@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "#FSMA204ReceivingEvent&1.0.0",
+  "title": "FSMA 204 Receiving Event",
+  "description": "Source Pydantic: api/app/models/starfish_events.py::ReceivingEvent. Rules: FSMA_COMMON_001, FSMA_RECEIVING_001-002. The data-model.md FSMA_RECEIVING_001 rule allows `received_at` OR `ship_to`, but the v1 Pydantic model only declares `received_at` (required). The schema reflects v1 behaviour — if v2 reintroduces `ship_to` as an alternative, change the `required` list to use `anyOf`.",
+  "type": "object",
+  "required": ["eventType", "event_time", "shipped_from", "received_at", "items"],
+  "properties": {
+    "eventType": { "const": "receiving" },
+    "event_time": { "type": "string", "format": "date-time" },
+    "event_timezone_offset": { "type": "string", "pattern": "^[+-]\\d{2}:\\d{2}$" },
+    "shipped_from": { "type": "string", "minLength": 1 },
+    "received_at": { "type": "string", "minLength": 1 },
+    "items": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["epc", "quantity", "unit_of_measurement"],
+        "properties": {
+          "epc": { "type": "string", "minLength": 1 },
+          "quantity": { "type": "number" },
+          "unit_of_measurement": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  }
+}
