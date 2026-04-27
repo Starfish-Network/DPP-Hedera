@@ -107,7 +107,7 @@
 ### Implementation for User Story 2
 
 - [X] T040 [P] [US2] Wrote [schemas/fsma/creating.json](schemas/fsma/creating.json) — IRI `#FSMA204CreatingEvent&1.0.0`. Enforces FSMA_COMMON_001 (event_time required), FSMA_CREATING_001 (biz_location required), FSMA_CREATING_002 (quantity_list `minItems: 1`). Discriminator field is `eventType` (camelCase) to match the existing `starfish_events.py::CreatingEvent` model — the snake_case rename to `fsma204_event_type` for registry-side consistency is still tracked under T047. Validated against [samples/fsma/creating.json](samples/fsma/creating.json): valid sample passes, empty `quantity_list` / missing `biz_location` / wrong `eventType` all rejected.
-- [ ] T041 [P] [US2] Write [schemas/fsma/shipping.json](schemas/fsma/shipping.json) (IRI `#FSMA204ShippingEvent&1.0.0`, `FSMA_SHIPPING_*`).
+- [X] T041 [P] [US2] Wrote [schemas/fsma/shipping.json](schemas/fsma/shipping.json) — IRI `#FSMA204ShippingEvent&1.0.0`. Enforces FSMA_COMMON_001, FSMA_SHIPPING_001 (ship_from), FSMA_SHIPPING_002 (ship_to), FSMA_SHIPPING_003 (items `minItems: 1`). Validated against [samples/fsma/shipping.json](samples/fsma/shipping.json): valid sample passes; missing `ship_from`, missing `ship_to`, empty `items` all rejected.
 - [ ] T042 [P] [US2] Write [schemas/fsma/receiving.json](schemas/fsma/receiving.json) (IRI `#FSMA204ReceivingEvent&1.0.0`, `FSMA_RECEIVING_*`).
 - [ ] T043 [P] [US2] Write [schemas/fsma/transforming.json](schemas/fsma/transforming.json) (IRI `#FSMA204TransformingEvent&1.0.0`, `FSMA_TRANSFORMING_*`).
 - [ ] T044 [P] [US2] Write [schemas/fsma/packing.json](schemas/fsma/packing.json) (IRI `#FSMA204PackingEvent&1.0.0`, `FSMA_PACKING_*`).
