@@ -21,6 +21,26 @@ We use **Managed Guardian Service (MGS)** — a Hedera-managed multi-tenant Guar
 
 The OpenAPI spec for MGS is checked in at [api-docs-yaml](api-docs-yaml).
 
+### Testnet Integration Facts (for downstream consumers)
+
+External Guardian projects that want to consume our `GDSTComplianceCredential` VCs via `trustChainBlock` filter on the values below. Mainnet values will be different and added when mainnet rollout happens.
+
+| Field | Testnet value |
+|-------|---------------|
+| Standard Registry DID | `did:hedera:testnet:3xGAGt5EkLtUkqZ663wbAWhcSALyZywmx7hrkB7v2Mvg_0.0.8739126` |
+| SR Hedera account | `0.0.8739125` |
+| GDST policy ID (MGS) | `69eb781e6c734e54853b3cb5` |
+| GDST policy tag | `GDST-1-2-seafood-v2` |
+| GDST policy version | `1.0.0` |
+| External-data intake block | `gdst_intake` (POST `/api/v1/external/{policyId}/{blockTag}`) |
+| FSMA policy ID (MGS) | _pending T050_ |
+
+**Two integration paths** (see [spec/spec.md §User Story 4](spec/spec.md) for full requirements):
+
+1. **Run your own copy** — import [schemas/policies/gdst-seafood-traceability.policy](../../schemas/policies/gdst-seafood-traceability.policy) into a vanilla Guardian instance (UI or `POST /policies/push/import/file`), publish under your own SR, and submit events to your own intake block. Note the v1 simplification: the imported policy issues VCs against the `GDSTComplianceIntake` envelope schema and does not enforce per-rule compliance blocks at the Guardian layer — see [the constitution §III v1 exemption](../../.specify/memory/constitution.md). Importers own rule enforcement until v2 reattaches the per-rule blocks.
+
+2. **Consume our VCs via `trustChainBlock`** — filter on `issuer == "did:hedera:testnet:3xGAGt5EkLtUkqZ663wbAWhcSALyZywmx7hrkB7v2Mvg_0.0.8739126"`, `type` includes `GDSTComplianceCredential`, and `credentialSubject.complianceStatus == "compliant"`. The Guaranteed-fields contract (`eventHash`, `gdstEventType`, `complianceStatus`, `policyVersion`, `issuedAt`, `species`) is documented in [spec/data-model.md §VC entity](spec/data-model.md). A reference downstream policy will live at [samples/downstream/carbon-credit-demo.policy.json](../../samples/downstream/carbon-credit-demo.policy.json) once T059 lands.
+
 ## Spec Documents
 
 > **Canonical spec lives in [`spec/`](spec/)** (symlink → `specs/001-guardian-integration/`).
