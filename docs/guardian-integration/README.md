@@ -32,8 +32,11 @@ External Guardian projects that want to consume our `GDSTComplianceCredential` V
 | GDST policy ID (MGS) | `69eb781e6c734e54853b3cb5` |
 | GDST policy tag | `GDST-1-2-seafood-v2` |
 | GDST policy version | `1.0.0` |
-| External-data intake block | `gdst_intake` (POST `/api/v1/external/{policyId}/{blockTag}`) |
-| FSMA policy ID (MGS) | _pending T050_ |
+| GDST intake block | `gdst_intake` (POST `/api/v1/external/{policyId}/{blockTag}`) |
+| FSMA policy ID (MGS) | `69ef9d3ede6cb63433b0ed3f` |
+| FSMA policy tag | `FSMA-204-food-safety` |
+| FSMA policy version | `1.0.0` |
+| FSMA intake block | `fsma_intake` |
 
 **Two integration paths** (see [spec/spec.md §User Story 4](spec/spec.md) for full requirements):
 

@@ -1,0 +1,73 @@
+{
+  "name": "FSMA204ComplianceIntake",
+  "description": "Credential subject accepted by the FSMA 204 policy's external intake block. Stamped server-side by api/app/service/schema_mapper.py::to_credential_subject from any of the 6 validated FSMA events (Creating, Shipping, Receiving, Transforming, Packing, Unpacking). FR-015: the full original event payload is preserved verbatim under `event`.",
+  "entity": "VC",
+  "document": {
+    "title": "FSMA204ComplianceIntake",
+    "description": "FSMA 204 compliance credential subject",
+    "type": "object",
+    "properties": {
+      "eventHash": {
+        "title": "Event hash",
+        "description": "sha256 of the canonical FSMA event, hex-encoded with 0x prefix.",
+        "type": "string",
+        "pattern": "^0x[0-9a-f]{64}$"
+      },
+      "fsma204EventType": {
+        "title": "FSMA 204 event type",
+        "description": "One of the 6 FSMA 204 Critical Tracking Event types.",
+        "type": "string",
+        "enum": [
+          "creating",
+          "shipping",
+          "receiving",
+          "transforming",
+          "packing",
+          "unpacking"
+        ]
+      },
+      "complianceStatus": {
+        "title": "Compliance status",
+        "description": "`compliant` for initial issuance, `superseded` for corrective VCs.",
+        "type": "string",
+        "enum": ["compliant", "superseded"]
+      },
+      "policyVersion": {
+        "title": "Policy version",
+        "description": "Semantic version of the FSMA 204 Guardian policy.",
+        "type": "string"
+      },
+      "issuedAt": {
+        "title": "Issued at",
+        "description": "ISO-8601 timestamp stamped by the FastAPI mapper at submit time.",
+        "type": "string",
+        "format": "date-time"
+      },
+      "supersedes": {
+        "title": "Supersedes (event hash)",
+        "description": "When present, this VC replaces the one identified by the referenced eventHash.",
+        "type": "string"
+      },
+      "event": {
+        "title": "Original event payload",
+        "description": "Full verbatim FSMA 204 event payload preserved per FR-015.",
+        "type": "object"
+      }
+    },
+    "required": [
+      "eventHash",
+      "fsma204EventType",
+      "complianceStatus",
+      "policyVersion",
+      "issuedAt"
+    ]
+  },
+  "context": {
+    "@context": {
+      "@version": 1.1,
+      "@vocab": "https://w3id.org/traceability/#undefinedTerm",
+      "id": "@id",
+      "type": "@type"
+    }
+  }
+}
