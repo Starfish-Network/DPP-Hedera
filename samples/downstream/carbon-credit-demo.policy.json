@@ -1,0 +1,110 @@
+{
+  "name": "Carbon Credit Eligibility Demo",
+  "description": "Reference implementation showing how a downstream Guardian project consumes GDSTComplianceCredential VCs issued by the Starfish DPP-Hedera Standard Registry. The policy filters incoming VCs by issuer DID and credentialSubject.complianceStatus, surfaces the full trust chain via trustChainBlock, then issues a downstream CarbonCreditEligibility VC. NOT RUNNABLE AS-IS — a downstream operator must: (1) replace trustedIssuer with the testnet/mainnet SR DID for their target environment (see docs/guardian-integration/README.md §Testnet Integration Facts); (2) import or republish the GDSTComplianceCredential VC schema in their own SR namespace; (3) provide a CarbonCreditEligibility schema (the carbon-credit issuance contract is the downstream operator's deliverable, not Starfish's); (4) regenerate the placeholder block ids before POST /policies. Demonstrates spec §FR-001 / §SC-004 composability and US4 acceptance scenario A4.2.",
+  "topicDescription": "carbon-credit-demo",
+  "policyTag": "carbon-credit-demo-v1",
+  "policyRoles": ["AUDITOR"],
+  "policyGroups": [],
+  "policyTopics": [],
+  "policyTokens": [],
+  "categoriesExport": [],
+  "categories": [],
+  "config": {
+    "id": "00000000-0000-4000-8000-000000000001",
+    "blockType": "interfaceContainerBlock",
+    "tag": "cc_root",
+    "permissions": ["AUDITOR"],
+    "defaultActive": true,
+    "onErrorAction": "no-action",
+    "uiMetaData": {},
+    "options": [],
+    "events": [],
+    "artifacts": [],
+    "children": [
+      {
+        "id": "00000000-0000-4000-8000-000000000002",
+        "blockType": "externalDataBlock",
+        "tag": "cc_vc_intake",
+        "permissions": ["AUDITOR"],
+        "defaultActive": true,
+        "onErrorAction": "no-action",
+        "uiMetaData": {},
+        "schema": "#GDSTComplianceCredential",
+        "entityType": "GDSTComplianceCredential",
+        "description": "Receives a GDSTComplianceCredential VC via POST /external/{policyId}/cc_vc_intake. Wire your VC source — a presentation request, an audit pipeline, or a manual upload form — to this block. The schema reference assumes the downstream SR has imported (or re-published) the GDSTComplianceCredential VC schema; published schema IRIs from the Starfish SR are documented in schemas/gdst/.",
+        "events": [
+          {
+            "source": "cc_vc_intake",
+            "target": "cc_filter_trusted_issuer",
+            "input": "RunEvent",
+            "output": "RunEvent",
+            "actor": "",
+            "disabled": false
+          }
+        ],
+        "artifacts": [],
+        "children": []
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000003",
+        "blockType": "customLogicBlock",
+        "tag": "cc_filter_trusted_issuer",
+        "permissions": ["AUDITOR"],
+        "defaultActive": true,
+        "onErrorAction": "no-action",
+        "uiMetaData": {},
+        "description": "Trust-anchor filter — admits only VCs whose `issuer` is the configured Starfish SR DID and whose `credentialSubject.complianceStatus` is `compliant`. The TRUSTED_ISSUER constant below is testnet; downstream operators MUST replace it with the appropriate SR DID for their target environment (a single deployment SHOULD never mix testnet and mainnet DIDs — Constitution §Technology Baseline). Throwing in the expression aborts policy execution for non-conformant VCs; the trust-chain block downstream is not reached.",
+        "expression": "function (documents) {\n  // TODO(downstream operator): replace with mainnet SR DID for production.\n  var TRUSTED_ISSUER = 'did:hedera:testnet:3xGAGt5EkLtUkqZ663wbAWhcSALyZywmx7hrkB7v2Mvg_0.0.8739126';\n  var vc = documents[0];\n  if (vc.issuer !== TRUSTED_ISSUER) {\n    throw new Error('Untrusted issuer: ' + vc.issuer);\n  }\n  var subject = Array.isArray(vc.credentialSubject) ? vc.credentialSubject[0] : vc.credentialSubject;\n  if (subject.complianceStatus !== 'compliant') {\n    throw new Error('VC complianceStatus is not compliant: ' + subject.complianceStatus);\n  }\n  return [vc];\n}",
+        "events": [
+          {
+            "source": "cc_filter_trusted_issuer",
+            "target": "cc_trust_chain",
+            "input": "RunEvent",
+            "output": "RunEvent",
+            "actor": "",
+            "disabled": false
+          }
+        ],
+        "artifacts": [],
+        "children": []
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000004",
+        "blockType": "trustChainBlock",
+        "tag": "cc_trust_chain",
+        "permissions": ["AUDITOR"],
+        "defaultActive": true,
+        "onErrorAction": "no-action",
+        "uiMetaData": {},
+        "description": "Renders the full Hedera DID + VC chain backing the input GDSTComplianceCredential. Auditors see the issuing SR DID, the underlying eventHash, and any superseding history (FR-014). Pure verification/display — does not modify the document flow.",
+        "events": [
+          {
+            "source": "cc_trust_chain",
+            "target": "cc_issue_eligibility",
+            "input": "RunEvent",
+            "output": "RunEvent",
+            "actor": "",
+            "disabled": false
+          }
+        ],
+        "artifacts": [],
+        "children": []
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000005",
+        "blockType": "createVcDocumentBlock",
+        "tag": "cc_issue_eligibility",
+        "permissions": ["AUDITOR"],
+        "defaultActive": false,
+        "onErrorAction": "no-action",
+        "uiMetaData": {},
+        "schema": "#CarbonCreditEligibility",
+        "entityType": "CarbonCreditEligibility",
+        "description": "Issues a downstream CarbonCreditEligibility VC keyed on the input GDSTComplianceCredential's eventHash + species. Real implementations replace this with policy-specific carbon-credit logic — allocation, pool assignment, retirement, monetisation. The CarbonCreditEligibility schema is the downstream operator's deliverable; Starfish ships only the GDST half of the trust chain.",
+        "events": [],
+        "artifacts": [],
+        "children": []
+      }
+    ]
+  }
+}
