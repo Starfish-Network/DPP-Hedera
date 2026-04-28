@@ -4,7 +4,7 @@ import json
 from fastapi import APIRouter, File, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
 from app.service.ipfs import download_from_ipfs, upload_to_ipfs
-from app.helpers.compliance import sha256_bytes32
+from app.helpers.compliance import gdst_min_rules, sha256_bytes32
 from app.service.hedera import hedera_contract_attach_file, hedera_contract_get_data_key, hedera_contract_get_files, hedera_post_transaction
 from app.core.kms import get_kms
 from app.crypto.encryption import envelope_encrypt, file_envelope_decrypt, file_envelope_encrypt
@@ -49,13 +49,22 @@ async def create_gdst_event(evt: GDSTEvent):
     event_hash = sha256_bytes32(event_dict)
     event_hash_hex = "0x" + event_hash.hex()
 
-    # Guardian forwarding (non-blocking, Constitution §IV)
+    # Some GDST rules (e.g. vessel.vessel_id OR vessel.vessel_name) pass
+    # Pydantic but only fail at the rule-predicate layer. FR-004 says VCs
+    # are issued for *compliant* events only — gate Guardian forwarding here
+    # so non-compliant events don't get stamped `complianceStatus: compliant`.
+    is_compliant = gdst_min_rules(event_dict)
+
+    # Guardian forwarding (non-blocking, FR-004 compliance-only, Constitution §IV)
     guardian_submission: dict = {"status": "skipped", "reason": "not_configured"}
-    client = maybe_get_guardian_client(GDST)
-    if client is not None:
-        guardian_submission = await forward_event_to_guardian(
-            client, GDST, event_dict, event_hash_hex
-        )
+    if not is_compliant:
+        guardian_submission = {"status": "skipped", "reason": "not_compliant"}
+    else:
+        client = maybe_get_guardian_client(GDST)
+        if client is not None:
+            guardian_submission = await forward_event_to_guardian(
+                client, GDST, event_dict, event_hash_hex
+            )
 
     return {
         "status": "ok",
@@ -63,6 +72,7 @@ async def create_gdst_event(evt: GDSTEvent):
         "receiptStatus": result["receiptStatus"],
         "eventType": event_dict["gdst_event_type"],
         "eventHash": event_hash_hex,
+        "isCompliant": is_compliant,
         "source": source,
         "guardian": guardian_submission,
     }

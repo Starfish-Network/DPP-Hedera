@@ -32,9 +32,9 @@ A Starfish operator submits a GDST Critical Tracking Event (e.g., a Fishing even
 **Acceptance Scenarios**:
 
 1. **Given** a published GDST policy and an operator DID, **When** the operator submits a Fishing event with `vessel.vessel_id`, `iuu.fishing_authorization`, and `where.catch_area = "FAO71"`, **Then** the system records the event on HCS and Guardian issues a `GDSTComplianceCredential` retrievable by `event_hash`.
-2. **Given** the same setup, **When** the operator submits a Fishing event missing `iuu.fishing_authorization`, **Then** FastAPI rejects with `400` and error code `GDST_MISSING_FISHING_AUTHORIZATION`, no VC is issued, and the Guardian circuit-breaker counter does not increment (rejection is local).
+2. **Given** the same setup, **When** the operator submits a Fishing event missing `iuu.fishing_authorization`, **Then** FastAPI rejects with `422` (Pydantic validation error referencing `iuu.fishing_authorization`), no VC is issued, and the Guardian circuit-breaker counter does not increment (rejection is local, before any MGS call).
 3. **Given** a Landing event with `iuu.landing_authorization` present, **When** submitted, **Then** a `GDSTComplianceCredential` is issued with `credentialSubject.complianceStatus = "compliant"`.
-4. **Given** an Aggregation event with empty `parent_items` and empty `child_items`, **When** submitted, **Then** FastAPI rejects with `400` / `GDST_AGGREGATION_EMPTY`.
+4. **Given** an Aggregation event with empty `parent_items` and empty `child_items` (passes Pydantic but fails `gdst_min_rules`), **When** submitted, **Then** the event is recorded on HCS with `isCompliant: false`, the response carries `guardian: {status: "skipped", reason: "not_compliant"}`, and no VC is issued.
 
 ### User Story 2 — FSMA-Compliant Supply-Chain Event Issues A VC (Priority: P1)
 
@@ -47,8 +47,8 @@ The same loop for FSMA 204: an operator submits a Creating/Shipping/Receiving/Tr
 **Acceptance Scenarios**:
 
 1. **Given** a Creating event with non-empty `quantity_list` and a `biz_location`, **When** submitted, **Then** an `FSMA204ComplianceCredential` is issued.
-2. **Given** a Shipping event without `ship_to`, **When** submitted, **Then** FastAPI rejects with `400` / `FSMA_MISSING_SHIP_TO`.
-3. **Given** a Transforming event with empty `output_items`, **When** submitted, **Then** FastAPI rejects with `400` / `FSMA_TRANSFORMING_NO_OUTPUTS`.
+2. **Given** a Shipping event without `ship_to`, **When** submitted, **Then** FastAPI rejects with `422` (Pydantic validation error referencing `ship_to`), no VC is issued, and the Guardian breaker counter does not increment.
+3. **Given** a Transforming event with empty `output_items`, **When** submitted, **Then** FastAPI rejects with `422` (Pydantic `min_length=1` violation on `output_items`), no VC is issued.
 
 ### User Story 3 — Guardian Unavailability Does Not Block Event Recording (Priority: P1)
 
@@ -89,13 +89,12 @@ Both policies have their full GPS proposal packet: description, workflow diagram
 1. **Given** the GDST submission packet, **When** cross-referenced against the GPS deliverables checklist, **Then** every required artifact is present and the IPFS CIDs resolve.
 2. **Given** the FSMA submission packet, **When** cross-referenced similarly, **Then** every required artifact is present.
 
-> **Error-code convention.** The error codes used in acceptance scenarios above
-> (e.g. `GDST_MISSING_FISHING_AUTHORIZATION`, `FSMA_MISSING_SHIP_TO`) are the
-> *FastAPI response* codes. Each maps 1:1 to a rule ID in
-> [data-model.md §Rule Source Table](data-model.md) — e.g.
-> `GDST_MISSING_FISHING_AUTHORIZATION` is the API code for rule `GDST_FISHING_002`.
-> The concrete mapping table is produced as part of `/speckit-implement` and
-> kept next to `api/app/helpers/compliance.py`.
+> **Rejection layers.** Acceptance scenarios above describe two distinct rejection paths:
+>
+> 1. **Pydantic 422** — most missing-field / format-violation rules (e.g. `iuu.fishing_authorization` required, `min_length=1` on lists) reject before the route body executes. The error payload references the offending field path; assertions use that field name, not a custom code string.
+> 2. **`gdst_min_rules` / `fsma_min_rules` returning `False`** — covers rules Pydantic can't express (e.g. "vessel.vessel_id OR vessel.vessel_name", non-empty parent OR child items). Such events still record on HCS with `isCompliant: false` and skip Guardian forwarding (FR-004 compliance-only).
+>
+> Mapping each rule ID to its enforcement layer is documented in [data-model.md §Rule Source Table](data-model.md). v2 may add a custom-code surface for clients that want stable error identifiers separate from Pydantic's field paths.
 
 ### Edge Cases
 
