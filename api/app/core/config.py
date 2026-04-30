@@ -45,6 +45,12 @@ class Settings(BaseSettings):
     GUARDIAN_BREAKER_FAIL_COUNT: int = 3            # FR-005 / research.md §3
     GUARDIAN_BREAKER_OPEN_DURATION_S: int = 60      # FR-005 / research.md §3
 
+    # 002-demo-ui: feature-flagged dev-only routes that drive the breaker
+    # simulator from the demo UI (research.md §2 of 002-demo-ui). Default
+    # disabled; production deployments leave this off so /api/v1/_demo/* is
+    # unmounted and unreachable.
+    GUARDIAN_DEMO_ROUTES_ENABLED: str = "0"
+
     @model_validator(mode="after")
     def _guardian_network_matches_hedera_network(self) -> "Settings":
         if self.GUARDIAN_NETWORK != self.NETWORK:
