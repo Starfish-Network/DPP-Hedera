@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { SubmitGdst } from "../pages/SubmitGdst";
 
 type DemoTab = "submit_gdst" | "submit_fsma" | "health" | "retrieve" | "about";
 
@@ -32,7 +33,7 @@ export function GuardianDemo() {
                 ))}
             </aside>
             <section className="bg-white border rounded-lg shadow p-6 min-h-[400px]">
-                <Placeholder label={activeLabel} />
+                {tab === "submit_gdst" ? <SubmitGdst /> : <Placeholder label={activeLabel} />}
             </section>
         </div>
     );

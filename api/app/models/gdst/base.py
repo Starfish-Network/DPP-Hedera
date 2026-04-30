@@ -1,6 +1,6 @@
 from typing import Optional, Annotated
 from datetime import datetime
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, ConfigDict, Field, validator
 from app.models.gdst.constraints import GTIN, UNECE_UOM, EventID, FAOASFISCode, FAOFishingArea, ISO3166Alpha2
 
 class VesselInfo(BaseModel):
@@ -75,6 +75,17 @@ class IUUInfo(BaseModel):
 
 
 class GDSTEvent(BaseModel):
+    # `extra="allow"` lets subclass-specific KDEs (vessel, transshipment_vessel,
+    # parent_items / child_items, etc.) flow through the base when the route
+    # accepts `evt: GDSTEvent`. Without this, FastAPI's default `extra="ignore"`
+    # silently drops them, breaking gdst_min_rules' OR-clauses (e.g. "vessel.vessel_id
+    # OR vessel.vessel_name" never matches when `vessel` itself was stripped).
+    # The proper fix is a Literal-typed discriminated union over the subclasses
+    # (route uses `Annotated[Union[FishingEvent, ...], Field(discriminator="gdst_event_type")]`),
+    # but that requires Literal types on every subclass — deferred. See spec
+    # 002-demo-ui T018 follow-up.
+    model_config = ConfigDict(extra="allow")
+
     gdst_event_type: str
     who: OwnershipInfo
     what: ProductInfo
