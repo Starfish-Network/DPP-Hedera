@@ -78,21 +78,6 @@ Read-only; no state mutation outside the page's local `useState`.
 
 ---
 
-## Page 5: About (`pages/About.tsx`)
-
-Pure-static markdown render via `dangerouslySetInnerHTML` from a co-located `.md` import or an inline `<section>` with curated content. No HTTP calls.
-
-**Content**:
-
-- Two-paragraph architecture summary (HCS + Guardian + breaker).
-- Links to:
-  - [docs/guardian-integration/README.md](../../docs/guardian-integration/README.md) — testnet integration facts.
-  - [schemas/gdst/README.md](../../schemas/gdst/README.md) and [schemas/fsma/README.md](../../schemas/fsma/README.md) — Guaranteed-fields contracts.
-  - [samples/downstream/carbon-credit-demo.policy.json](../../samples/downstream/carbon-credit-demo.policy.json) — downstream consumer reference.
-  - [../spec.md](../spec.md) — what this demo is showing.
-
----
-
 ## Helper-module contracts (`ui/trace-ui/src/lib` + `src/hooks`)
 
 ### `lib/api.ts`

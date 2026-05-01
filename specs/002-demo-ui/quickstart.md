@@ -32,18 +32,17 @@ npm run dev
 
 Vite prints a `http://localhost:5173` URL. The `/api/v1/*` requests are proxied to `http://localhost:8000` per [vite.config.ts](../../ui/trace-ui/vite.config.ts) — no CORS dance.
 
-Top nav has two tabs: **Trace Explorer** (the original graph view, unchanged) and **Guardian Demo**. The demo tab has a sub-nav for Submit GDST / Submit FSMA / Retrieve VC / Health & Resilience / About.
+Top nav has two tabs: **Trace Explorer** (the original graph view, unchanged) and **Guardian Demo**. The demo tab has a sub-nav for Submit GDST / Submit FSMA / Retrieve VC / Health & Resilience.
 
 ## Five-minute demo script
 
-1. **Open About** (~30s): explain the architecture — HCS for authoritative record + Guardian for VC issuance + breaker for resilience.
-2. **Submit GDST** (~90s): pick `fishing.json` from the dropdown, click Submit, watch the HCS receipt appear, then the polling indicator, then the issued VC's Guaranteed fields. Copy the `eventHash`.
-3. **Retrieve VC** (~30s): paste the `eventHash` into the Retrieve form, show the VC. Toggle "include history" — for a fresh submit it's a one-entry chain.
-4. **Submit FSMA** (~60s): pick `creating.json`, show the same loop produces an `FSMA204ComplianceCredential` with `fsma204EventType: "creating"`. Demonstrates two policies via one registry pattern.
-5. **Health & Resilience** (~90s): toggle "Simulate MGS down", submit 3 events, watch `/guardian/health` go `ok → unavailable → breaker_open`. Submit a 4th — see HCS still records, Guardian shows "skipped: breaker_open". Clear the simulator, wait 60s, submit a 5th — breaker probes, returns to `ok`.
-6. (Bonus) **Switch to Trace Explorer**: enter a product EPC/lot used in the events you just submitted and show the upstream/downstream graph rendering on top of the HCS-recorded events. Demonstrates that the Guardian VCs and the trace graph share one source of truth (HCS).
+1. **Submit GDST** (~90s): pick `fishing.json` from the dropdown, click Submit, watch the HCS receipt appear, then the polling indicator, then the issued VC's Guaranteed fields. Copy the `eventHash`.
+2. **Retrieve VC** (~30s): paste the `eventHash` into the Retrieve form, show the VC. Toggle "include history" — for a fresh submit it's a one-entry chain.
+3. **Submit FSMA** (~60s): pick `creating.json`, show the same loop produces an `FSMA204ComplianceCredential` with `fsma204EventType: "creating"`. Demonstrates two policies via one registry pattern.
+4. **Health & Resilience** (~90s): toggle "Simulate MGS down", submit 3 events, watch `/guardian/health` go `ok → unavailable → breaker_open`. Submit a 4th — see HCS still records, Guardian shows "skipped: breaker_open". Clear the simulator, wait 60s, submit a 5th — breaker probes, returns to `ok`.
+5. (Bonus) **Switch to Trace Explorer**: enter a product EPC/lot used in the events you just submitted and show the upstream/downstream graph rendering on top of the HCS-recorded events. Demonstrates that the Guardian VCs and the trace graph share one source of truth (HCS).
 
-Total: ~5–6 minutes. Each step references a Constitution principle the listener can verify on screen.
+Total: ~5 minutes. Each step references a Constitution principle the listener can verify on screen.
 
 ## Troubleshooting
 

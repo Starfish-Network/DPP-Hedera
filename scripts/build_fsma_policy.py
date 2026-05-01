@@ -56,9 +56,10 @@ POLICY_DESCRIPTION = (
     "compliance for Critical Tracking Events. Issues "
     "FSMA204ComplianceCredential VCs for events submitted via FastAPI."
 )
-POLICY_TAG = "FSMA-204-food-safety"
+POLICY_TAG = "FSMA-204-food-safety-v2"
 POLICY_VERSION = "1.0.0"
 INTAKE_BLOCK_TAG = "fsma_intake"
+CREATE_VC_BLOCK_TAG = "fsma_create_vc"
 ISSUE_BLOCK_TAG = "fsma_issue_vc"
 ROOT_BLOCK_TAG = "fsma_root"
 
@@ -126,7 +127,21 @@ def _draft_policy() -> dict[str, Any]:
 
 
 def _full_config(intake_schema_ref: str) -> dict[str, Any]:
-    """Root container -> externalDataBlock -> sendToGuardianBlock."""
+    """Root → externalDataBlock → customLogicBlock → sendToGuardianBlock.
+
+    See build_gdst_policy.py::_full_config for the full rationale; this is the
+    FSMA mirror with `FSMA204ComplianceIntake` entity types and fsma_* tags.
+    customLogicBlock with default `unsigned: false` wraps the script's return
+    value in a signed W3C VC envelope using the SR DID — there is no
+    `createVcDocumentBlock` in MGS's block taxonomy.
+    """
+    passthrough_script = (
+        "function processDocuments(documents) {\n"
+        "    return documents[0];\n"
+        "}\n"
+        "const result = processDocuments(documents);\n"
+        "done(result);\n"
+    )
     return {
         "id": _new_id(),
         "blockType": "interfaceContainerBlock",
@@ -152,6 +167,32 @@ def _full_config(intake_schema_ref: str) -> dict[str, Any]:
                 "events": [
                     {
                         "source": INTAKE_BLOCK_TAG,
+                        "target": CREATE_VC_BLOCK_TAG,
+                        "input": "RunEvent",
+                        "output": "RunEvent",
+                        "actor": "",
+                        "disabled": False,
+                    }
+                ],
+                "artifacts": [],
+                "children": [],
+            },
+            {
+                "id": _new_id(),
+                "blockType": "customLogicBlock",
+                "tag": CREATE_VC_BLOCK_TAG,
+                "permissions": ["ANY_ROLE"],
+                "defaultActive": True,
+                "onErrorAction": "no-action",
+                "uiMetaData": {},
+                "expression": passthrough_script,
+                "selectedScriptLanguage": "JAVASCRIPT",
+                "unsigned": False,
+                "passOriginal": False,
+                "outputSchema": intake_schema_ref,  # required by Guardian to type the signed VC; missing = worker dies
+                "events": [
+                    {
+                        "source": CREATE_VC_BLOCK_TAG,
                         "target": ISSUE_BLOCK_TAG,
                         "input": "RunEvent",
                         "output": "RunEvent",
@@ -167,7 +208,7 @@ def _full_config(intake_schema_ref: str) -> dict[str, Any]:
                 "blockType": "sendToGuardianBlock",
                 "tag": ISSUE_BLOCK_TAG,
                 "permissions": ["ANY_ROLE"],
-                "defaultActive": False,
+                "defaultActive": True,
                 "onErrorAction": "no-action",
                 "uiMetaData": {},
                 "options": [],
@@ -248,16 +289,29 @@ async def bootstrap(client: GuardianClient, *, dry_run: bool = False) -> dict[st
     print(f"   policyId={policy_id}, topicId={topic_id}")
 
     print("3. Create intake schema under policy topic...")
-    schema_dto, intake_iri = _wrap_schema_dto(intake_base)
-    schemas = await client.create_schema(topic_id, schema_dto)
-    created_schema = _pick_created(schemas, by="name", value="FSMA204ComplianceIntake")
+    schema_dto, _intake_iri = _wrap_schema_dto(intake_base)
+    await client.create_schema(topic_id, schema_dto)
+    # MGS's POST /schemas response sometimes lists SR-namespace schemas instead
+    # of the just-created one. Authoritative: list this topic's schemas + pick
+    # the DRAFT we just created (mirror of build_gdst_policy.py).
+    in_topic = await client.list_schemas(topic_id)
+    drafts = [
+        s for s in in_topic
+        if s.get("name") == "FSMA204ComplianceIntake" and s.get("status") == "DRAFT"
+    ]
+    if not drafts:
+        raise RuntimeError(
+            f"No DRAFT FSMA204ComplianceIntake found in topic {topic_id} after "
+            f"create_schema — saw {[(s.get('name'), s.get('status')) for s in in_topic]}"
+        )
+    created_schema = drafts[-1]
     schema_id = created_schema["id"]
-    schema_uuid = created_schema.get("iri") or intake_iri
+    schema_uuid = created_schema["iri"]
     print(f"   schemaId={schema_id}, iri={schema_uuid}")
 
-    # MGS may auto-bump the publish version when an earlier version of the
-    # same schema name exists in the SR namespace. The IRI on the created
-    # schema record reflects the actual version MGS assigned.
+    # MGS may auto-bump the version when an earlier `FSMA204ComplianceIntake@…`
+    # is on-chain in the SR namespace. The IRI on the created record reflects
+    # the actual version MGS assigned.
     publish_version = (schema_uuid.rsplit("&", 1)[-1] if "&" in schema_uuid else POLICY_VERSION)
 
     print(f"4. Publish schema (async, up to {int(PUBLISH_TIMEOUT_S / 60)} min)...")

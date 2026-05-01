@@ -64,14 +64,6 @@ A separate "Retrieve" tab/page accepts an `eventHash` and shows the latest VC, o
 1. **Given** a VC exists for an `eventHash`, **When** the user enters the hash and clicks Retrieve, **Then** the UI shows the VC's `credentialSubject` and `proof` summary.
 2. **Given** a corrective VC has been issued for the same `eventHash` (manual or via a "Submit Correction" UI affordance), **When** the user toggles "include history", **Then** the UI shows the chain `[oldest, …, latest]` with the oldest entry marked `superseded` and the latest `compliant`.
 
-### User Story 5 — Single-Page "What This Is" Onboarding (Priority: P2)
-
-The UI's landing surface explains the architecture in two paragraphs: HCS for authoritative record + Guardian for VC issuance + breaker for resilience. Links to the Guardian-integration README and the `.policy` exports for reviewers who want to dig deeper.
-
-**Why this priority**: A demo without context is just buttons. This is what makes a 5-minute viewer leave with the right mental model.
-
-**Independent Test**: First-time visitor lands on the page. Within 30 seconds they should be able to answer "what is being submitted" and "where is the VC stored?" from on-screen content.
-
 ### Edge Cases
 
 - Backend not running: the UI's status indicator (top-right) shows "API offline" instead of crashing on the first action.
@@ -111,7 +103,7 @@ The UI surfaces existing entities — does not introduce new ones:
 
 - **SC-001**: A first-time viewer can submit a GDST sample and see the issued VC appear in the UI within **90 seconds** without any documentation lookup. Measured by walking three new colleagues through an unguided demo.
 - **SC-002**: The Guardian Demo extension adds **zero net new external dependencies** to the existing `ui/trace-ui/package.json` for the basic submit/retrieve/health flows. (One small dev-only backend dep may land for the simulator, gated behind `GUARDIAN_DEMO_ROUTES_ENABLED`.) No new build pipeline.
-- **SC-003**: The UI starts up and renders all five user-story flows correctly with **`pip install -r api/requirements.txt`** for the backend and **`cd ui/trace-ui && npm install` (already done) + `npm run dev`** for the frontend. Measured by reproducing on a clean checkout.
+- **SC-003**: The UI starts up and renders all four user-story flows correctly with **`pip install -r api/requirements.txt`** for the backend and **`cd ui/trace-ui && npm install` (already done) + `npm run dev`** for the frontend. Measured by reproducing on a clean checkout.
 - **SC-004**: The Guardian-integration spec's claims (FR-004 idempotency, FR-006 breaker, FR-007 retrieval, FR-014 superseding) are each **directly demonstrable** via a button or toggle in the UI — one-click reproduction of the corresponding acceptance scenarios.
 - **SC-005**: The UI degrades gracefully when Guardian is unconfigured / unavailable: a viewer sees an explanatory empty state, not a stack trace. Tested by running with `GUARDIAN_FSMA_POLICY_ID=` (empty) and `GUARDIAN_API_URL=http://invalid:9999`.
 

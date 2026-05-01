@@ -223,7 +223,27 @@ class GuardianClient:
         if code < 400:
             return None
         if code == 451:
-            return GuardianToSRequired("MGS requires TOS acceptance in the portal")
+            # MGS uses 451 for both ToS-not-accepted AND tenant quota errors
+            # ({"code": "S02", "details": {"message": "Limit exceeded", "limit": ...}}).
+            # Distinguish so the breaker doesn't lock into `tos_required` for a
+            # transient quota issue that the operator can clear by deleting an
+            # unused policy in the portal.
+            body: object = None
+            try:
+                body = r.json()
+            except Exception:
+                pass
+            details = body.get("details") if isinstance(body, dict) else None
+            if isinstance(details, dict) and details.get("limit"):
+                return GuardianClientError(
+                    f"MGS quota exceeded: {details}. Free a slot in the MGS portal then retry."
+                )
+            msg = (
+                details.get("message")
+                if isinstance(details, dict) and details.get("message")
+                else "MGS requires TOS acceptance in the portal"
+            )
+            return GuardianToSRequired(f"{msg} (body={r.text[:300]})")
         if code in (401, 403):
             return GuardianAuthError(f"MGS auth failed: {code} — body={r.text[:200]!r}")
         if code == 404:

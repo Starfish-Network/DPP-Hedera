@@ -5,7 +5,7 @@
 
 ## Summary
 
-**Extend** the existing `ui/trace-ui/` React app with a Guardian Demo shell — a top-nav switcher between the existing Trace Explorer and a new five-section demo (Submit GDST / Submit FSMA / Retrieve VC / Health & Resilience / About). The demo calls the live `/api/v1/*` endpoints through Vite's existing dev proxy. No new framework, no new build pipeline, no new top-level directory; the demo lands as added components, hooks, and types under `ui/trace-ui/src/`.
+**Extend** the existing `ui/trace-ui/` React app with a Guardian Demo shell — a top-nav switcher between the existing Trace Explorer and a new four-section demo (Submit GDST / Submit FSMA / Retrieve VC / Health & Resilience). The demo calls the live `/api/v1/*` endpoints through Vite's existing dev proxy. No new framework, no new build pipeline, no new top-level directory; the demo lands as added components, hooks, and types under `ui/trace-ui/src/`.
 
 ## Technical Context
 
@@ -25,7 +25,7 @@ The constitution targets the Guardian backend; mapping each principle to the fro
 
 | Principle | Applied to demo UI | Status |
 |-----------|---------------------|--------|
-| I. Policies are the product | UI doesn't issue or store policies; About tab links viewers to the published `.policy` exports + `schemas/{gdst,fsma}/README.md`. | Pass (out of scope; respected) |
+| I. Policies are the product | UI doesn't issue or store policies; the published `.policy` exports + `schemas/{gdst,fsma}/README.md` remain the canonical contract. | Pass (out of scope; respected) |
 | II. Composable by design | UI consumes Guaranteed VC fields only — same surface a downstream Guardian project would use. The UI is itself a "downstream consumer reference." | Pass |
 | III. Dual compliance logic | UI submits raw events; rule enforcement remains entirely at the FastAPI layer. UI does not pre-validate. | Pass |
 | IV. Core flows never block | UI's submit flow goes through the existing route, which already gates Guardian under `is_compliant` + breaker. UI surfaces the route's response shape — does not introduce a parallel path. | Pass |
@@ -53,13 +53,12 @@ ui/trace-ui/src/
 ├── App.tsx                                  # MODIFIED — top-nav switcher (Trace | Guardian Demo)
 ├── views/                                   # NEW — top-level views the App renders
 │   ├── TraceExplorer.tsx                    # NEW — wraps existing App body for the Trace tab
-│   └── GuardianDemo.tsx                     # NEW — sub-nav for the 5 demo sections
+│   └── GuardianDemo.tsx                     # NEW — sub-nav for the 4 demo sections
 ├── pages/                                   # NEW — each section of the Guardian Demo
 │   ├── SubmitGdst.tsx
 │   ├── SubmitFsma.tsx
 │   ├── RetrieveVc.tsx
-│   ├── HealthAndResilience.tsx
-│   └── About.tsx
+│   └── HealthAndResilience.tsx
 ├── components/
 │   ├── EventFiles.tsx                       # existing (unchanged)
 │   ├── GraphLegend.tsx                      # existing (unchanged)
@@ -125,7 +124,7 @@ Per research.md §2: a small new module at `api/app/routes/_demo/breaker.py` (fe
 ```text
 specs/002-demo-ui/
 ├── plan.md                 # This file
-├── spec.md                 # Five user stories
+├── spec.md                 # Four user stories
 ├── research.md             # Tech choice + simulator design + polling cadence
 ├── data-model.md           # Light — references existing entities, new TS types
 ├── quickstart.md           # Two-terminal launch runbook
@@ -161,7 +160,7 @@ Expected shape (preview):
 - T006: `lib/api.ts` typed fetch wrapper.
 - T007: `lib/samples.ts` vite glob loader.
 - T008: `usePollForVc` + `useHealthPoll` hooks.
-- T009-T013 [P]: Five demo pages (SubmitGdst, SubmitFsma, RetrieveVc, HealthAndResilience, About).
+- T009-T012 [P]: Four demo pages (SubmitGdst, SubmitFsma, RetrieveVc, HealthAndResilience).
 - T014: Shared UI components (`SamplePicker`, `GuaranteedFieldsCard`, `ComplianceBadge`, `VcTimeline`).
 - T015: New TypeScript types (`GuardianHealth`, `VerifiableCredential`); extend `ComplianceCheckResponse`.
 - T016: README polish in `ui/trace-ui/README.md`.

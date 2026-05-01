@@ -1,14 +1,13 @@
 import { useState } from "react";
 import { SubmitGdst } from "../pages/SubmitGdst";
 
-type DemoTab = "submit_gdst" | "submit_fsma" | "health" | "retrieve" | "about";
+type DemoTab = "submit_gdst" | "submit_fsma" | "health" | "retrieve";
 
 const TABS: Array<{ id: DemoTab; label: string }> = [
     { id: "submit_gdst", label: "Submit GDST" },
     { id: "submit_fsma", label: "Submit FSMA" },
     { id: "health", label: "Health & Resilience" },
     { id: "retrieve", label: "Retrieve VC" },
-    { id: "about", label: "About" },
 ];
 
 export function GuardianDemo() {

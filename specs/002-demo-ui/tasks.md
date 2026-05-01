@@ -5,12 +5,12 @@
 
 **Tests**: Light. Manual smoke validation per story checkpoint is the primary signal; opt-in Vitest unit tests for helpers land in Phase 8 if the trace-ui repo gains a test runner cleanly. Per spec.md: "manual validation against the running FastAPI."
 
-**Organization**: Grouped by user story from [spec.md](spec.md). US1 + US2 are P1 (MVP); US3, US4, US5 are P2.
+**Organization**: Grouped by user story from [spec.md](spec.md). US1 + US2 are P1 (MVP); US3 + US4 are P2.
 
 ## Format: `[ID] [P?] [Story] Description`
 
 - **[P]**: Can run in parallel (different files, no dependencies on incomplete tasks)
-- **[Story]**: US1 (Submit GDST), US2 (Submit FSMA), US3 (Resilience), US4 (Retrieve VC), US5 (About). Omitted on Setup / Foundational / Polish.
+- **[Story]**: US1 (Submit GDST), US2 (Submit FSMA), US3 (Resilience), US4 (Retrieve VC). Omitted on Setup / Foundational / Polish.
 
 ---
 
@@ -120,21 +120,6 @@
 
 ---
 
-## Phase 7: User Story 5 — About / onboarding page (Priority: P2)
-
-**Goal**: A first-time visitor leaves with the right mental model: HCS for record + Guardian for VC + breaker for resilience.
-
-**Independent Test**: Open the Demo tab → About sub-page. Confirm the architecture summary fits one screen, every link resolves, and a colleague who's never seen the project can answer "what is being submitted" + "where is the VC stored" in under 30 seconds without opening other tabs.
-
-### Implementation for User Story 5
-
-- [ ] T032 [P] [US5] Implement [ui/trace-ui/src/pages/About.tsx](ui/trace-ui/src/pages/About.tsx) — pure-static markdown content per [contracts/ui-flows.md §Page 5](specs/002-demo-ui/contracts/ui-flows.md): two-paragraph architecture summary + links to docs/guardian-integration/README.md, schemas/{gdst,fsma}/README.md, samples/downstream/carbon-credit-demo.policy.json, specs/002-demo-ui/spec.md. Use Tailwind prose classes; no markdown library needed (small content).
-- [ ] T033 [US5] Wire `<About />` into [ui/trace-ui/src/views/GuardianDemo.tsx](ui/trace-ui/src/views/GuardianDemo.tsx).
-
-**Checkpoint**: All five user stories demonstrable. Spec §SC-004 test ready (each FR/§ from 001-guardian-integration is reachable via a button or toggle).
-
----
-
 ## Phase 8: Polish & Cross-Cutting Concerns
 
 **Purpose**: Documentation, optional unit tests, end-to-end run.
@@ -152,11 +137,10 @@
 
 - **Setup (Phase 1)**: No dependencies — can start immediately.
 - **Foundational (Phase 2)**: Depends on Setup. **BLOCKS all user stories.**
-- **User Stories (Phases 3–7)**: All depend on Foundational.
+- **User Stories (Phases 3–6)**: All depend on Foundational.
   - **US1 (P1) and US2 (P1)** share every Phase-2 component — they proceed in parallel by file (different `pages/Submit*.tsx` files; both modify `views/GuardianDemo.tsx` for nav wiring, so T017 and T020 are sequential).
   - **US3 (P2)** is independent of US1/US2 once Phase 2 is done; backend additions (T022-T024) can run in parallel with frontend (T025).
   - **US4 (P2)** is independent.
-  - **US5 (P2)** is independent — pure static content.
 - **Polish (Phase 8)**: Depends on all desired user stories being complete.
 
 ### Within Each User Story
@@ -170,7 +154,7 @@
 - **Phase 2**: T003-T006 [P] (4 type/lib files), T008+T009 [P] (after T007 lands), T010-T012 [P] (after T006 + T004 land).
 - **Phase 3**: Only T016 marked [P]; T017 + T018 are sequential single-file ops.
 - **Phase 5**: T022 + T023 [P] (different files — backend route vs guardian_client.py).
-- **Phases 6 + 7**: T028, T032 [P] within their phases.
+- **Phase 6**: T028 [P] within the phase.
 - **Phase 8**: T034, T035 [P].
 
 ### Cross-story parallelism (with multiple developers)
@@ -178,7 +162,7 @@
 After Phase 2 ships, three developers could split:
 - Dev A: US1 (T016-T018) + US2 (T019-T021)
 - Dev B: US3 frontend (T025-T027) + US3 backend (T022-T024) (or Dev C splits backend off)
-- Dev C: US4 (T028-T031) + US5 (T032-T033)
+- Dev C: US4 (T028-T031)
 
 The only cross-story serialisation is `views/GuardianDemo.tsx` — every "Wire \<Page /\> into nav" task touches it. Devs coordinate via merges, not lock-step ordering.
 
@@ -192,17 +176,17 @@ The only cross-story serialisation is `views/GuardianDemo.tsx` — every "Wire \
 2. Complete Phase 2 (Foundational) — the bulk of the work; ~half the total tasks. **Blocks everything.**
 3. Complete Phase 3 (US1) — deliver the GDST half of the demo. **STOP and VALIDATE** with T018.
 4. Complete Phase 4 (US2) — deliver the FSMA half. **STOP and VALIDATE** with T021.
-5. **MVP complete** — both P1 stories deployable. The demo can open with US1 + US2 + the existing Trace Explorer; resilience/retrieval/about ship in the next iteration.
+5. **MVP complete** — both P1 stories deployable. The demo can open with US1 + US2 + the existing Trace Explorer; resilience/retrieval ship in the next iteration.
 
 ### Incremental Delivery
 
-Each phase ends with a checkpoint that's independently demoable. After Phase 4 (MVP), Phase 5/6/7 can ship in any order — they don't depend on each other.
+Each phase ends with a checkpoint that's independently demoable. After Phase 4 (MVP), Phase 5/6 can ship in any order — they don't depend on each other.
 
 ### Parallel Team Strategy
 
 With two developers post-Phase-2:
 - Dev A: US1 → US3 (frontend) → US4
-- Dev B: US2 → US3 (backend) → US5
+- Dev B: US2 → US3 (backend)
 
 Phase 8 polish (~4 tasks) is whoever finishes their stack first.
 
@@ -211,7 +195,7 @@ Phase 8 polish (~4 tasks) is whoever finishes their stack first.
 ## Notes
 
 - `[P]` = different files, no dependencies on incomplete tasks.
-- `[Story]` label maps user-story tasks to US1–US5 for traceability.
+- `[Story]` label maps user-story tasks to US1–US4 for traceability.
 - Each user story is independently completable and testable; the only inter-story coupling is `views/GuardianDemo.tsx` (nav wiring) which serialises one line per story.
 - Manual smoke tests (T018, T021, T027, T031) are the primary validation signal per spec.md ("manual validation against the running FastAPI"). Vitest/automated testing is opt-in (T035) and not the default.
 - Commit after each task or logical group.
