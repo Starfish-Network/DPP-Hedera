@@ -113,12 +113,12 @@
 
 ### Implementation for User Story 4
 
-- [ ] T028 [P] [US4] Create [ui/trace-ui/src/components/VcTimeline.tsx](ui/trace-ui/src/components/VcTimeline.tsx) — vertical-timeline renderer for `[oldest, …, latest]` chains. Each entry uses `<GuaranteedFieldsCard>` + `<ComplianceBadge>`. Oldest entries with `complianceStatus: "superseded"` render dimmer; latest with `complianceStatus: "compliant"` is highlighted.
-- [ ] T029 [US4] Implement [ui/trace-ui/src/pages/RetrieveVc.tsx](ui/trace-ui/src/pages/RetrieveVc.tsx) — text input for hash, radio for slug (`gdst | fsma`), checkbox for `?history=true`, "Retrieve" button. Uses `getVc` from `lib/api.ts`. On success, renders `<GuaranteedFieldsCard>` (single VC) or `<VcTimeline>` (history). On 404, explanatory empty state. Depends on T028.
-- [ ] T030 [US4] Wire `<RetrieveVc />` into [ui/trace-ui/src/views/GuardianDemo.tsx](ui/trace-ui/src/views/GuardianDemo.tsx).
-- [ ] T031 [US4] Manual smoke test: retrieve a fresh VC (single entry); then submit a corrective event with `supersedes=<prior eventHash>` (via the API directly, since the UI doesn't have a "submit correction" affordance in v1) and confirm the timeline renders both entries with correct ordering and badges.
+- [~] T028 [US4] **Dropped from MVP.** VcTimeline component was created then removed once we confirmed the supersedes-chain can't be exercised end-to-end (`forward_event_to_guardian` doesn't accept `supersedes`; no route exposes it). When the correction-submission path lands, recreate the component from git history (`git log --diff-filter=D --name-only -- ui/trace-ui/src/components/VcTimeline.tsx`).
+- [X] T029 [US4] Implemented [ui/trace-ui/src/pages/RetrieveVc.tsx](ui/trace-ui/src/pages/RetrieveVc.tsx) — single-VC retrieval only. Discriminated `RetrievalState` union (`idle | loading | not_found | single | error`) drives a single `<ResultPanel>` switch. `0x` prefix stripped before passing to `getVc`. 404 surfaces explanatory empty state pointing at the non-compliant-skip case (HCS recorded, Guardian skipped, no VC ever issued). 5xx renders the body verbatim. History toggle removed per scope cut — see US4 scope note in [spec.md](spec.md). If MGS regresses and returns an array for `history=false`, we collapse to the latest entry.
+- [X] T030 [US4] Wired `<RetrieveVc />` into [ui/trace-ui/src/views/GuardianDemo.tsx](ui/trace-ui/src/views/GuardianDemo.tsx) — `tab === "retrieve"` now renders the page; `<Placeholder>` removed since all 3 MVP tabs are populated. **Build verified**: 522 modules transformed, `npm run lint` clean.
+- [~] T031 [US4] **Deferred to v1.1.** Correction-submission path doesn't exist in the API today, so the timeline-based smoke test is not runnable. Single-VC retrieval is covered by T018/T021's submit-then-retrieve cycle.
 
-**Checkpoint**: Retrieval story demonstrable. FR-007 + FR-014 visible.
+**Checkpoint**: Single-VC retrieval demonstrable (FR-007 visible). FR-014 (superseding) ships with v1.1 once a correction-submission route lands.
 
 ---
 

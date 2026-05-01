@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { RetrieveVc } from "../pages/RetrieveVc";
 import { SubmitFsma } from "../pages/SubmitFsma";
 import { SubmitGdst } from "../pages/SubmitGdst";
 
@@ -12,7 +13,6 @@ const TABS: Array<{ id: DemoTab; label: string }> = [
 
 export function GuardianDemo() {
     const [tab, setTab] = useState<DemoTab>("submit_gdst");
-    const activeLabel = TABS.find((t) => t.id === tab)?.label ?? "";
 
     return (
         <div className="grid grid-cols-[12rem_1fr] gap-6">
@@ -34,25 +34,8 @@ export function GuardianDemo() {
             <section className="bg-white border rounded-lg shadow p-6 min-h-[400px]">
                 {tab === "submit_gdst" && <SubmitGdst />}
                 {tab === "submit_fsma" && <SubmitFsma />}
-                {tab !== "submit_gdst" && tab !== "submit_fsma" && (
-                    <Placeholder label={activeLabel} />
-                )}
+                {tab === "retrieve" && <RetrieveVc />}
             </section>
-        </div>
-    );
-}
-
-interface PlaceholderProps {
-    readonly label: string;
-}
-
-function Placeholder({ label }: PlaceholderProps) {
-    return (
-        <div className="text-gray-500 italic">
-            <p className="mb-2">{label} — coming soon (Phase 3+).</p>
-            <p className="text-sm">
-                This page is part of the Guardian Demo for spec 002-demo-ui.
-            </p>
         </div>
     );
 }

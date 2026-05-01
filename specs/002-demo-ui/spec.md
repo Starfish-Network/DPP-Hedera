@@ -55,16 +55,17 @@ The UI surfaces `/guardian/health` live and lets the user **manually trigger** a
 
 ### User Story 4 — Auditor Retrieves a VC by Event Hash (Priority: P2)
 
-A separate "Retrieve" tab/page accepts an `eventHash` and shows the latest VC, optionally with `?history=true` to display the full superseding chain.
+A separate "Retrieve" tab/page accepts an `eventHash` and shows the latest VC.
 
 **Why this priority**: Demonstrates `GET /guardian/{slug}/vc/{event_hash}` (FR-007). Useful for auditor demos.
 
-**Independent Test**: After submitting a Fishing event, copy the `eventHash`, paste into the Retrieve form → see the VC. Toggle "include history" → see the same single entry until a corrective VC has been issued.
+> **MVP scope note**: Only single-VC retrieval is wired. The supersedes-chain (`?history=true`) toggle and the chain-rendering UI (VcTimeline) were dropped from MVP because there is currently no API path to *create* a corrective VC (`forward_event_to_guardian` doesn't accept `supersedes`, and the route handlers don't expose it). FR-014 (superseding) ships when the correction-submission path lands. The mapper, retrieval resolver, and `?history=true` query support already exist on the backend, so resuming this story is purely additive.
+
+**Independent Test**: After submitting a Fishing event, copy the `eventHash`, paste into the Retrieve form → see the VC.
 
 **Acceptance Scenarios**:
 
 1. **Given** a VC exists for an `eventHash`, **When** the user enters the hash and clicks Retrieve, **Then** the UI shows the VC's `credentialSubject` and `proof` summary.
-2. **Given** a corrective VC has been issued for the same `eventHash` (manual or via a "Submit Correction" UI affordance), **When** the user toggles "include history", **Then** the UI shows the chain `[oldest, …, latest]` with the oldest entry marked `superseded` and the latest `compliant`.
 
 ### Edge Cases
 
@@ -83,7 +84,7 @@ A separate "Retrieve" tab/page accepts an `eventHash` and shows the latest VC, o
 - **FR-004**: The UI MUST display the response object verbatim alongside a human-readable summary so a reviewer can correlate the underlying API to the rendered story.
 - **FR-005**: The UI MUST surface `/api/v1/guardian/health` live (auto-refresh every 5s) with the four states (`ok | tos_required | breaker_open | unavailable`).
 - **FR-006**: The UI MUST provide a "simulate MGS outage" toggle that tells the backend to inject failures (mechanism TBD in research.md — likely an env-toggleable test endpoint OR a respx-style request interceptor).
-- **FR-007**: The UI MUST allow VC retrieval by arbitrary `eventHash` (not just events submitted within the current session), with `?history=true` toggle to display the supersedes chain in issuance order.
+- **FR-007**: The UI MUST allow VC retrieval by arbitrary `eventHash` (not just events submitted within the current session). (The `?history=true` supersedes-chain toggle is deferred to v1.1 with US4 — see scope note above.)
 - **FR-008**: The UI MUST treat `isCompliant: false` events as a first-class outcome — show the HCS receipt + the explicit "Guardian skipped: not_compliant" rationale rather than treating it as an error.
 - **FR-009**: The UI MUST work offline-of-Guardian — if `GUARDIAN_*_POLICY_ID` is empty or `/guardian/health` reports `breaker_open`, the UI greys the relevant Guardian panels but keeps the HCS-submit half operational (Constitution §IV).
 - **FR-010**: The UI MUST extend the existing [ui/trace-ui/](../../ui/trace-ui/) React + Vite + TypeScript + Tailwind app. Launch is `cd ui/trace-ui && npm run dev` alongside the existing FastAPI server — no second frontend, no docker-compose required for a 5-minute showcase. Reuses the Vite proxy at [vite.config.ts](../../ui/trace-ui/vite.config.ts) that already routes `/api/v1` to `http://localhost:8000`.
@@ -106,7 +107,7 @@ The UI surfaces existing entities — does not introduce new ones:
 - **SC-001**: A first-time viewer can submit a GDST sample and see the issued VC appear in the UI within **90 seconds** without any documentation lookup. Measured by walking three new colleagues through an unguided demo.
 - **SC-002**: The Guardian Demo extension adds **zero net new external dependencies** to the existing `ui/trace-ui/package.json` for the basic submit/retrieve/health flows. (One small dev-only backend dep may land for the simulator, gated behind `GUARDIAN_DEMO_ROUTES_ENABLED`.) No new build pipeline.
 - **SC-003**: The UI starts up and renders the three MVP user-story flows (US1, US2, US4) correctly with **`pip install -r api/requirements.txt`** for the backend and **`cd ui/trace-ui && npm install` (already done) + `npm run dev`** for the frontend. Measured by reproducing on a clean checkout. (US3 is deferred to v1.1 — see note above.)
-- **SC-004**: The Guardian-integration spec's claims (FR-004 idempotency, FR-007 retrieval, FR-014 superseding) are each **directly demonstrable** via a button or toggle in the UI — one-click reproduction of the corresponding acceptance scenarios. **FR-006 (breaker) is partially demonstrated** via the always-visible header health badge; the on-demand simulator that exercises the open→half-open→closed cycle moves to v1.1 with US3.
+- **SC-004**: The Guardian-integration spec's claims FR-004 (idempotency) and FR-007 (retrieval) are each **directly demonstrable** via a button or toggle in the UI. **FR-006 (breaker)** is partially demonstrated via the always-visible header health badge; the on-demand simulator that exercises the open→half-open→closed cycle moves to v1.1 with US3. **FR-014 (superseding)** is deferred to v1.1 — backend lacks a correction-submission route, so a chain can't be created from the UI; see US4 scope note.
 - **SC-005**: The UI degrades gracefully when Guardian is unconfigured / unavailable: a viewer sees an explanatory empty state, not a stack trace. Tested by running with `GUARDIAN_FSMA_POLICY_ID=` (empty) and `GUARDIAN_API_URL=http://invalid:9999`.
 
 ## Assumptions

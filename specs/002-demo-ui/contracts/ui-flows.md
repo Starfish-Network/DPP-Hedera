@@ -51,14 +51,13 @@ The route response shape is identical (T048 normalised this), so `<ComplianceBad
 **Actions**:
 
 1. Render two inputs: `eventHashHex` text + a "policy" radio (`gdst` | `fsma`).
-2. Render a "Include history" checkbox.
-3. On "Retrieve" click:
-   - `api.ts::getVc(slug, eventHashHex, { history })` → `GET /api/v1/guardian/{slug}/vc/{eventHashHex}` (with `?history=true` if checked).
-   - 200: render via `<GuaranteedFieldsCard>` + raw-JSON `<details>`. If history mode + multiple entries, use `<VcTimeline>` to show `[oldest, …, latest]` vertically with `complianceStatus` per entry.
+2. On "Retrieve" click:
+   - `api.ts::getVc(slug, eventHashHex)` → `GET /api/v1/guardian/{slug}/vc/{eventHashHex}`.
+   - 200: render via `<GuaranteedFieldsCard>` + raw-JSON `<details>`.
    - 404: explanatory empty state ("no VC for that event hash; check that you submitted it first").
    - 5xx: error JSON verbatim.
 
-Read-only; no state mutation outside the page's local `useState`.
+Read-only; no state mutation outside the page's local `useState`. **MVP scope cut**: the "Include history" checkbox + `<VcTimeline>` chain renderer are deferred to v1.1 — see [spec.md §User Story 4](../spec.md). The `lib/api.ts::getVc` helper still accepts `{ history }` so re-introducing the toggle is purely additive.
 
 ---
 

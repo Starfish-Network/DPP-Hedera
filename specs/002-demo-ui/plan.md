@@ -65,8 +65,8 @@ ui/trace-ui/src/
 │   ├── NodeModal.tsx                        # existing (unchanged)
 │   ├── SamplePicker.tsx                     # NEW — dropdown over samples/{gdst,fsma}/*.json
 │   ├── GuaranteedFieldsCard.tsx             # NEW — renders the VC's Guaranteed-fields contract
-│   ├── ComplianceBadge.tsx                  # NEW — colour-coded outcome label
-│   └── VcTimeline.tsx                       # NEW — supersedes-chain renderer
+│   └── ComplianceBadge.tsx                  # NEW — colour-coded outcome label
+│   # VcTimeline.tsx — supersedes-chain renderer (deferred to v1.1)
 ├── hooks/
 │   ├── useEventFiles.ts                     # existing (unchanged)
 │   ├── usePollForVc.ts                      # NEW — 5s poll / 5-min ceiling
@@ -161,7 +161,7 @@ Expected shape (preview):
 - T007: `lib/samples.ts` vite glob loader.
 - T008: `usePollForVc` + `useHealthPoll` hooks.
 - T009-T012 [P]: Four demo pages (SubmitGdst, SubmitFsma, RetrieveVc, HealthAndResilience).
-- T014: Shared UI components (`SamplePicker`, `GuaranteedFieldsCard`, `ComplianceBadge`, `VcTimeline`).
+- T014: Shared UI components (`SamplePicker`, `GuaranteedFieldsCard`, `ComplianceBadge`). `VcTimeline` deferred to v1.1.
 - T015: New TypeScript types (`GuardianHealth`, `VerifiableCredential`); extend `ComplianceCheckResponse`.
 - T016: README polish in `ui/trace-ui/README.md`.
 - T017: Smoke run against live backend.
