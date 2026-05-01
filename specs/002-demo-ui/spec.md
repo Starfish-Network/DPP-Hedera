@@ -38,7 +38,9 @@ Same loop but for the FSMA 204 policy. Demonstrates that the registry pattern ha
 1. **Given** `GUARDIAN_FSMA_POLICY_ID` is populated, **When** the user submits a Creating sample, **Then** the UI shows the issued `FSMA204ComplianceCredential` with `fsma204EventType: "creating"` and `complianceStatus: "compliant"`.
 2. **Given** the same setup, **When** the user submits a Shipping event missing `ship_to`, **Then** UI displays the Pydantic 422 error referencing `ship_to`.
 
-### User Story 3 — Reviewer Sees Resilience (Priority: P2)
+### User Story 3 — Reviewer Sees Resilience (Priority: P2 — **DEFERRED to v1.1**)
+
+> **Out of MVP scope.** The header health badge (always visible, top-right) covers the resilience signal at low cost; on-demand simulator + dedicated tab adds clarity for technical audiences but not for the core compliance narrative. Add back when an engineering reviewer asks. Implementation scaffolding (`GUARDIAN_DEMO_ROUTES_ENABLED` env-var gate) is already in place from T002, so resuming this story is purely additive.
 
 The UI surfaces `/guardian/health` live and lets the user **manually trigger** a simulated MGS outage to demonstrate Constitution §IV ("core flows never block"). After a few simulated failures, the breaker opens; subsequent events still record on HCS but show `guardian: skipped — breaker_open`. After 60s the breaker probes again.
 
@@ -103,8 +105,8 @@ The UI surfaces existing entities — does not introduce new ones:
 
 - **SC-001**: A first-time viewer can submit a GDST sample and see the issued VC appear in the UI within **90 seconds** without any documentation lookup. Measured by walking three new colleagues through an unguided demo.
 - **SC-002**: The Guardian Demo extension adds **zero net new external dependencies** to the existing `ui/trace-ui/package.json` for the basic submit/retrieve/health flows. (One small dev-only backend dep may land for the simulator, gated behind `GUARDIAN_DEMO_ROUTES_ENABLED`.) No new build pipeline.
-- **SC-003**: The UI starts up and renders all four user-story flows correctly with **`pip install -r api/requirements.txt`** for the backend and **`cd ui/trace-ui && npm install` (already done) + `npm run dev`** for the frontend. Measured by reproducing on a clean checkout.
-- **SC-004**: The Guardian-integration spec's claims (FR-004 idempotency, FR-006 breaker, FR-007 retrieval, FR-014 superseding) are each **directly demonstrable** via a button or toggle in the UI — one-click reproduction of the corresponding acceptance scenarios.
+- **SC-003**: The UI starts up and renders the three MVP user-story flows (US1, US2, US4) correctly with **`pip install -r api/requirements.txt`** for the backend and **`cd ui/trace-ui && npm install` (already done) + `npm run dev`** for the frontend. Measured by reproducing on a clean checkout. (US3 is deferred to v1.1 — see note above.)
+- **SC-004**: The Guardian-integration spec's claims (FR-004 idempotency, FR-007 retrieval, FR-014 superseding) are each **directly demonstrable** via a button or toggle in the UI — one-click reproduction of the corresponding acceptance scenarios. **FR-006 (breaker) is partially demonstrated** via the always-visible header health badge; the on-demand simulator that exercises the open→half-open→closed cycle moves to v1.1 with US3.
 - **SC-005**: The UI degrades gracefully when Guardian is unconfigured / unavailable: a viewer sees an explanatory empty state, not a stack trace. Tested by running with `GUARDIAN_FSMA_POLICY_ID=` (empty) and `GUARDIAN_API_URL=http://invalid:9999`.
 
 ## Assumptions

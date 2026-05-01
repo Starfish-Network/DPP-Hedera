@@ -32,17 +32,16 @@ npm run dev
 
 Vite prints a `http://localhost:5173` URL. The `/api/v1/*` requests are proxied to `http://localhost:8000` per [vite.config.ts](../../ui/trace-ui/vite.config.ts) — no CORS dance.
 
-Top nav has two tabs: **Trace Explorer** (the original graph view, unchanged) and **Guardian Demo**. The demo tab has a sub-nav for Submit GDST / Submit FSMA / Retrieve VC / Health & Resilience.
+Top nav has two tabs: **Trace Explorer** (the original graph view, unchanged) and **Guardian Demo**. The demo tab has a sub-nav for Submit GDST / Submit FSMA / Retrieve VC. The header always shows a live Guardian-health badge (red API offline / green ok / amber breaker_open / grey other) — that's the resilience signal in MVP. The dedicated Health & Resilience tab is deferred to v1.1 (see [spec.md §User Story 3](spec.md)).
 
-## Five-minute demo script
+## Demo script (~3-4 minutes)
 
 1. **Submit GDST** (~90s): pick `fishing.json` from the dropdown, click Submit, watch the HCS receipt appear, then the polling indicator, then the issued VC's Guaranteed fields. Copy the `eventHash`.
 2. **Retrieve VC** (~30s): paste the `eventHash` into the Retrieve form, show the VC. Toggle "include history" — for a fresh submit it's a one-entry chain.
 3. **Submit FSMA** (~60s): pick `creating.json`, show the same loop produces an `FSMA204ComplianceCredential` with `fsma204EventType: "creating"`. Demonstrates two policies via one registry pattern.
-4. **Health & Resilience** (~90s): toggle "Simulate MGS down", submit 3 events, watch `/guardian/health` go `ok → unavailable → breaker_open`. Submit a 4th — see HCS still records, Guardian shows "skipped: breaker_open". Clear the simulator, wait 60s, submit a 5th — breaker probes, returns to `ok`.
-5. (Bonus) **Switch to Trace Explorer**: enter a product EPC/lot used in the events you just submitted and show the upstream/downstream graph rendering on top of the HCS-recorded events. Demonstrates that the Guardian VCs and the trace graph share one source of truth (HCS).
+4. (Bonus) **Switch to Trace Explorer**: enter a product EPC/lot used in the events you just submitted and show the upstream/downstream graph rendering on top of the HCS-recorded events. Demonstrates that the Guardian VCs and the trace graph share one source of truth (HCS).
 
-Total: ~5 minutes. Each step references a Constitution principle the listener can verify on screen.
+If a viewer asks about MGS outages, point to the header badge and explain Constitution §IV: HCS keeps writing even when Guardian is unavailable; the breaker auto-opens after 3 failures, probes back after 60s. The on-demand simulator that exercises this on stage ships with v1.1.
 
 ## Troubleshooting
 

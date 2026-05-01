@@ -76,21 +76,23 @@
 
 ### Implementation for User Story 2
 
-- [ ] T019 [US2] Implement [ui/trace-ui/src/pages/SubmitFsma.tsx](ui/trace-ui/src/pages/SubmitFsma.tsx) — mirror of SubmitGdst with: `items={fsmaSamples}`, `submitFsmaEvent`, slug `"fsma"`, drop `species` from the Guaranteed-fields card (FSMA doesn't carry it). Reuses every component from Phase 2.
-- [ ] T020 [US2] Wire `<SubmitFsma />` into [ui/trace-ui/src/views/GuardianDemo.tsx](ui/trace-ui/src/views/GuardianDemo.tsx) — replace the `submit_fsma` placeholder.
+- [X] T019 [US2] Implemented [ui/trace-ui/src/pages/SubmitFsma.tsx](ui/trace-ui/src/pages/SubmitFsma.tsx) — mirror of SubmitGdst with: `items={fsmaSamples}`, `submitFsmaEvent`, slug `"fsma"`, FSMA-specific copy (POST URL, build-script reference in `not_configured` skip-message). `species` is dropped automatically by `<GuaranteedFieldsCard>`'s slug-keyed FIELDS table. Reuses every component from Phase 2.
+- [X] T020 [US2] Wired `<SubmitFsma />` into [ui/trace-ui/src/views/GuardianDemo.tsx](ui/trace-ui/src/views/GuardianDemo.tsx) — `submit_fsma` tab now renders the page, remaining 2 tabs still render `<Placeholder>`. **Build verified**: 521 modules transformed (+1 vs Phase 3), `npm run lint` clean.
 - [ ] T021 [US2] Manual smoke test: submit each of the 6 FSMA samples, confirm 6 VCs with correct `fsma204EventType`. Submit a Shipping event missing `ship_to` → confirm 422 referencing `ship_to`.
 
 **Checkpoint**: P1 MVP complete (US1 + US2). Both compliance loops demonstrable. Ready to deploy as a "compliance-loop showcase" if Phase 5+ slips.
 
 ---
 
-## Phase 5: User Story 3 — Resilience: Guardian outage doesn't block HCS (Priority: P2)
+## Phase 5: User Story 3 — Resilience: Guardian outage doesn't block HCS (Priority: P2 — **DEFERRED to v1.1**)
 
-**Goal**: Toggle a "Simulate MGS down" switch → submit 3 events → watch breaker open + HCS keeps writing. Demonstrates Constitution §IV.
+> **Out of MVP scope.** Per [spec.md §User Story 3](spec.md), the always-visible header health badge (already wired in T014) covers the resilience signal in MVP; the on-demand simulator + dedicated tab are deferred. Backend env-var gate (`GUARDIAN_DEMO_ROUTES_ENABLED`) is already in place from T002 — resuming this story is purely additive (no MVP code needs to change).
 
-**Independent Test**: With `GUARDIAN_DEMO_ROUTES_ENABLED=1` on backend startup, Health & Resilience sub-page → toggle simulator on → submit 3 events from the Submit GDST tab → watch `/guardian/health` transition `ok → unavailable → breaker_open`; 4th submission shows grey `breaker_open` badge with no MGS call attempted; clear simulator + wait 60s + 5th submission → breaker probes back to `ok`. Confirm spec §Acceptance Scenarios US3 #1 + #2.
+**Goal** (when resumed): Toggle a "Simulate MGS down" switch → submit 3 events → watch breaker open + HCS keeps writing. Demonstrates Constitution §IV.
 
-### Implementation for User Story 3
+**Independent Test** (when resumed): With `GUARDIAN_DEMO_ROUTES_ENABLED=1` on backend startup, Health & Resilience sub-page → toggle simulator on → submit 3 events from the Submit GDST tab → watch `/guardian/health` transition `ok → unavailable → breaker_open`; 4th submission shows grey `breaker_open` badge with no MGS call attempted; clear simulator + wait 60s + 5th submission → breaker probes back to `ok`. Confirm spec §Acceptance Scenarios US3 #1 + #2.
+
+### Implementation for User Story 3 (deferred — kept for v1.1 reference)
 
 - [ ] T022 [P] [US3] Create [api/app/routes/_demo/__init__.py](api/app/routes/_demo/__init__.py) (empty package marker) and [api/app/routes/_demo/breaker.py](api/app/routes/_demo/breaker.py) exposing `POST /api/v1/_demo/breaker/inject` (body: `{count?: int = 5}`, returns `{active: true}`), `POST /api/v1/_demo/breaker/clear` (returns `{active: false}`), `GET /api/v1/_demo/breaker/status` (returns `{active: bool}`). Uses a process-local module variable `_DEMO_FAILURE_COUNT` for state.
 - [ ] T023 [P] [US3] Add `set_demo_failure_mode(active: bool, count: int = 5)` and an internal counter check at the top of `GuardianClient.submit_document` in [api/app/service/guardian_client.py](api/app/service/guardian_client.py) — when active, decrement counter and raise `GuardianUnavailable("demo: simulated MGS outage")` instead of making the HTTP call. The breaker's `record_failure` then runs as normal (research.md §2 — drives the real CircuitBreaker, not a mock). Tag the hook with a `# v1: demo only` comment.
@@ -99,7 +101,7 @@
 - [ ] T026 [US3] Wire `<HealthAndResilience />` into [ui/trace-ui/src/views/GuardianDemo.tsx](ui/trace-ui/src/views/GuardianDemo.tsx).
 - [ ] T027 [US3] Manual smoke test: full simulator scenario — verify breaker opens after exactly 3 submissions (matching the 3-strikes from research.md §3); 4th submission has `guardian.status == "skipped", reason == "breaker_open"`; clear + wait 60s + 5th submission probes back to `ok`. Confirms FR-005 + FR-006 end-to-end visually.
 
-**Checkpoint**: Resilience story demonstrable. Constitution §IV verified live in front of an audience.
+**Checkpoint** (when resumed): Resilience story demonstrable. Constitution §IV verified live in front of an audience.
 
 ---
 

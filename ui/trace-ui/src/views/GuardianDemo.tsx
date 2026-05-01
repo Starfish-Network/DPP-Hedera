@@ -1,12 +1,12 @@
 import { useState } from "react";
+import { SubmitFsma } from "../pages/SubmitFsma";
 import { SubmitGdst } from "../pages/SubmitGdst";
 
-type DemoTab = "submit_gdst" | "submit_fsma" | "health" | "retrieve";
+type DemoTab = "submit_gdst" | "submit_fsma" | "retrieve";
 
 const TABS: Array<{ id: DemoTab; label: string }> = [
     { id: "submit_gdst", label: "Submit GDST" },
     { id: "submit_fsma", label: "Submit FSMA" },
-    { id: "health", label: "Health & Resilience" },
     { id: "retrieve", label: "Retrieve VC" },
 ];
 
@@ -32,7 +32,11 @@ export function GuardianDemo() {
                 ))}
             </aside>
             <section className="bg-white border rounded-lg shadow p-6 min-h-[400px]">
-                {tab === "submit_gdst" ? <SubmitGdst /> : <Placeholder label={activeLabel} />}
+                {tab === "submit_gdst" && <SubmitGdst />}
+                {tab === "submit_fsma" && <SubmitFsma />}
+                {tab !== "submit_gdst" && tab !== "submit_fsma" && (
+                    <Placeholder label={activeLabel} />
+                )}
             </section>
         </div>
     );

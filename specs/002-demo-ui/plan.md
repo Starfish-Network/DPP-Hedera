@@ -5,7 +5,7 @@
 
 ## Summary
 
-**Extend** the existing `ui/trace-ui/` React app with a Guardian Demo shell — a top-nav switcher between the existing Trace Explorer and a new four-section demo (Submit GDST / Submit FSMA / Retrieve VC / Health & Resilience). The demo calls the live `/api/v1/*` endpoints through Vite's existing dev proxy. No new framework, no new build pipeline, no new top-level directory; the demo lands as added components, hooks, and types under `ui/trace-ui/src/`.
+**Extend** the existing `ui/trace-ui/` React app with a Guardian Demo shell — a top-nav switcher between the existing Trace Explorer and a new three-section MVP demo (Submit GDST / Submit FSMA / Retrieve VC). The Health & Resilience tab (US3) is deferred to v1.1 (see [spec.md §User Story 3](spec.md)); the always-visible header health badge covers the lightweight resilience signal in MVP. The demo calls the live `/api/v1/*` endpoints through Vite's existing dev proxy. No new framework, no new build pipeline, no new top-level directory; the demo lands as added components, hooks, and types under `ui/trace-ui/src/`.
 
 ## Technical Context
 
@@ -104,9 +104,9 @@ GuaranteedFieldsCard renders the VC; raw JSON in a <details> expander
 
 Vite's `import.meta.glob('../../../samples/gdst/*.json', { eager: true })` lets the bundle pull canonical event samples directly from the repo at build time. Read-only — the demo doesn't write samples.
 
-### MGS-outage simulator
+### MGS-outage simulator (deferred to v1.1 with US3)
 
-Per research.md §2: a small new module at `api/app/routes/_demo/breaker.py` (feature-flagged via `GUARDIAN_DEMO_ROUTES_ENABLED=1`) exposes `POST /api/v1/_demo/breaker/{inject,clear}` and `GET /api/v1/_demo/breaker/status`. The inject endpoint sets a process-local flag that wraps `GuardianClient.submit_document` to raise `GuardianUnavailable` on the next N calls. Drives the real `CircuitBreaker` (T009).
+Per research.md §2: a small new module at `api/app/routes/_demo/breaker.py` (feature-flagged via `GUARDIAN_DEMO_ROUTES_ENABLED=1`) exposes `POST /api/v1/_demo/breaker/{inject,clear}` and `GET /api/v1/_demo/breaker/status`. The inject endpoint sets a process-local flag that wraps `GuardianClient.submit_document` to raise `GuardianUnavailable` on the next N calls. Drives the real `CircuitBreaker` (T009). The env-var gate (`GUARDIAN_DEMO_ROUTES_ENABLED`) was added in T002 so the route module can land additively when US3 is resumed.
 
 ### Contract deliverables
 
