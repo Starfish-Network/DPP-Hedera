@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ApiError, getVc } from "../lib/api";
 import type { PolicySlug } from "../types/PolicySlug";
 import type { VerifiableCredential } from "../types/VerifiableCredential";
@@ -22,6 +22,13 @@ export function usePollForVc(
     const intervalMs = opts.intervalMs ?? 5000;
     const timeoutMs = opts.timeoutMs ?? 300_000;
     const [state, setState] = useState<PollState>({ status: "polling", elapsedMs: 0 });
+
+    // Reset on resubmit: a previous run that reached terminal state (`ready`
+    // or `manual_review`) would otherwise flash through to the new submission
+    // until the next tick lands.
+    useEffect(() => {
+        setState({ status: "polling", elapsedMs: 0 });
+    }, [slug, eventHash]);
 
     usePoll(
         async (cancelled, startTime) => {

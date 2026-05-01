@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { GuaranteedFieldsCard } from "../components/GuaranteedFieldsCard";
+import { ErrorPanel } from "../components/SubmitFlow";
 import { ApiError, getVc } from "../lib/api";
 import type { PolicySlug } from "../types/PolicySlug";
 import type { VerifiableCredential } from "../types/VerifiableCredential";
@@ -10,6 +11,11 @@ type RetrievalState =
     | { status: "not_found" }
     | { status: "single"; vc: VerifiableCredential }
     | { status: "error"; error: ApiError | Error };
+
+const POLICY_OPTIONS: ReadonlyArray<{ slug: PolicySlug; label: string }> = [
+    { slug: "gdst", label: "GDST" },
+    { slug: "fsma", label: "FSMA" },
+];
 
 export function RetrieveVc() {
     const [hash, setHash] = useState("");
@@ -25,15 +31,11 @@ export function RetrieveVc() {
                 setState({ status: "not_found" });
                 return;
             }
-            if (Array.isArray(result)) {
-                // history=false should always return a single VC, but defend against
-                // a backend regression by collapsing to the latest entry.
-                const latest = result[result.length - 1];
-                if (latest) setState({ status: "single", vc: latest });
-                else setState({ status: "not_found" });
-            } else {
-                setState({ status: "single", vc: result });
-            }
+            // history=false should always return a single VC, but defend against
+            // a backend regression by collapsing to the latest entry.
+            const vc = Array.isArray(result) ? result[result.length - 1] : result;
+            if (vc) setState({ status: "single", vc });
+            else setState({ status: "not_found" });
         } catch (e) {
             setState({ status: "error", error: e instanceof Error ? e : new Error(String(e)) });
         }
@@ -71,26 +73,18 @@ export function RetrieveVc() {
                 <fieldset>
                     <legend className="text-sm font-medium text-gray-700 mb-1">Policy</legend>
                     <div className="flex gap-4">
-                        <label className="flex items-center gap-2 text-sm">
-                            <input
-                                type="radio"
-                                name="vc-slug"
-                                value="gdst"
-                                checked={slug === "gdst"}
-                                onChange={() => setSlug("gdst")}
-                            />
-                            GDST
-                        </label>
-                        <label className="flex items-center gap-2 text-sm">
-                            <input
-                                type="radio"
-                                name="vc-slug"
-                                value="fsma"
-                                checked={slug === "fsma"}
-                                onChange={() => setSlug("fsma")}
-                            />
-                            FSMA
-                        </label>
+                        {POLICY_OPTIONS.map((opt) => (
+                            <label key={opt.slug} className="flex items-center gap-2 text-sm">
+                                <input
+                                    type="radio"
+                                    name="vc-slug"
+                                    value={opt.slug}
+                                    checked={slug === opt.slug}
+                                    onChange={() => setSlug(opt.slug)}
+                                />
+                                {opt.label}
+                            </label>
+                        ))}
                     </div>
                 </fieldset>
 
@@ -129,23 +123,7 @@ function ResultPanel({
     }
 
     if (state.status === "error") {
-        const err = state.error;
-        if (err instanceof ApiError) {
-            return (
-                <div className="border border-red-300 bg-red-50 rounded-lg p-4 space-y-2">
-                    <h3 className="font-semibold text-red-900">API error ({err.status})</h3>
-                    <pre className="text-xs overflow-x-auto p-2 bg-white border rounded">
-                        {JSON.stringify(err.body, null, 2)}
-                    </pre>
-                </div>
-            );
-        }
-        return (
-            <div className="border border-red-300 bg-red-50 rounded-lg p-4">
-                <h3 className="font-semibold text-red-900">Network error</h3>
-                <p className="text-sm text-red-800 mt-1">{err.message}</p>
-            </div>
-        );
+        return <ErrorPanel error={state.error} />;
     }
 
     return <GuaranteedFieldsCard vc={state.vc} slug={slug} />;
