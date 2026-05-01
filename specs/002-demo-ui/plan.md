@@ -53,12 +53,12 @@ ui/trace-ui/src/
 ├── App.tsx                                  # MODIFIED — top-nav switcher (Trace | Guardian Demo)
 ├── views/                                   # NEW — top-level views the App renders
 │   ├── TraceExplorer.tsx                    # NEW — wraps existing App body for the Trace tab
-│   └── GuardianDemo.tsx                     # NEW — sub-nav for the 4 demo sections
+│   └── GuardianDemo.tsx                     # NEW — sub-nav for the 3 MVP demo sections
 ├── pages/                                   # NEW — each section of the Guardian Demo
 │   ├── SubmitGdst.tsx
 │   ├── SubmitFsma.tsx
-│   ├── RetrieveVc.tsx
-│   └── HealthAndResilience.tsx
+│   └── RetrieveVc.tsx
+│   # HealthAndResilience.tsx — deferred to v1.1 with US3
 ├── components/
 │   ├── EventFiles.tsx                       # existing (unchanged)
 │   ├── GraphLegend.tsx                      # existing (unchanged)
@@ -160,7 +160,7 @@ Expected shape (preview):
 - T006: `lib/api.ts` typed fetch wrapper.
 - T007: `lib/samples.ts` vite glob loader.
 - T008: `usePollForVc` + `useHealthPoll` hooks.
-- T009-T012 [P]: Four demo pages (SubmitGdst, SubmitFsma, RetrieveVc, HealthAndResilience).
+- T009-T011 [P]: Three MVP demo pages (SubmitGdst, SubmitFsma, RetrieveVc). HealthAndResilience deferred to v1.1.
 - T014: Shared UI components (`SamplePicker`, `GuaranteedFieldsCard`, `ComplianceBadge`). `VcTimeline` deferred to v1.1.
 - T015: New TypeScript types (`GuardianHealth`, `VerifiableCredential`); extend `ComplianceCheckResponse`.
 - T016: README polish in `ui/trace-ui/README.md`.

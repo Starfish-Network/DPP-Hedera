@@ -115,6 +115,6 @@ The UI surfaces existing entities — does not introduce new ones:
 - The existing 001-guardian-integration FastAPI is **already running** and reachable when the UI is launched. The UI is not a deployable web app on its own — it's a demo client.
 - The user submitting events through the UI has the SR credentials in `api/.env.dev` already (current state).
 - Mainnet / production rollout of the demo UI is **out of scope** for v1. This feature targets local-dev demos and stakeholder previews.
-- The "simulate MGS outage" feature (FR-006) requires a backend hook — exact mechanism is a research item. Acceptable trade-offs include a dev-only `/api/v1/_test/breaker/{open|close}` admin endpoint or wrapping the GuardianClient in a test-mode interceptor.
+- The "simulate MGS outage" feature (FR-006) requires a backend hook — chosen mechanism is the dev-only `/api/v1/_demo/breaker/{inject,clear,status}` admin namespace gated by `GUARDIAN_DEMO_ROUTES_ENABLED` (resolved in research.md §2). Deferred to v1.1 with US3.
 - No authentication/authorization on the UI itself — it inherits whatever the FastAPI backend enforces. v1 ships without a login gate.
 - No persistence of user actions — refreshing the page wipes the session-scoped event history. v2 may add a "demo timeline" if useful.

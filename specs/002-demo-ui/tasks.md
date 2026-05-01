@@ -41,9 +41,9 @@
 - [X] T012 [P] Created [ui/trace-ui/src/components/GuaranteedFieldsCard.tsx](ui/trace-ui/src/components/GuaranteedFieldsCard.tsx) — `FIELDS` lookup table per slug (GDST has 6 entries with `species`, FSMA has 5 without). Renders Issuer + Event Hash always, then iterates the slug's field list skipping undefined. Raw `credentialSubject` in a `<details>` expander.
 - [X] T013 Lifted the existing [ui/trace-ui/src/App.tsx](ui/trace-ui/src/App.tsx) body verbatim into [ui/trace-ui/src/views/TraceExplorer.tsx](ui/trace-ui/src/views/TraceExplorer.tsx) — relative imports shifted one level up (`./components/*` → `../components/*`, etc.). Default → named export `TraceExplorer`. Outer wrapper `<div className="min-h-screen bg-gray-50 p-6">` removed since the App shell now provides the page chrome; inner header h1 demoted to h2 to match the new hierarchy.
 - [X] T014 Rewrote [ui/trace-ui/src/App.tsx](ui/trace-ui/src/App.tsx) as a thin nav shell — top-nav with `useState<"trace" | "demo">`, global header `<span>` health badge driven by `useHealthPoll()` with 4 colour states (red API offline / green ok / amber breaker_open / grey other). `<TabButton>` typed with `Readonly<>` props (S6759).
-- [X] T015 Created [ui/trace-ui/src/views/GuardianDemo.tsx](ui/trace-ui/src/views/GuardianDemo.tsx) — sub-nav grid (12rem aside + main panel) with 5 tabs; each renders a `<Placeholder>` until the corresponding story phase lands. **Build verified**: `npm run build` produces `dist/` with 500 modules transformed (samples successfully inlined); `npm run lint` clean.
+- [X] T015 Created [ui/trace-ui/src/views/GuardianDemo.tsx](ui/trace-ui/src/views/GuardianDemo.tsx) — sub-nav grid (12rem aside + main panel). Initial scaffold rendered placeholders for every planned tab; after the About-tab cut and Phase-5 deferral the live tab list is **3** (Submit GDST / Submit FSMA / Retrieve VC). **Build verified at scaffold time**: `npm run build` produces `dist/` with 500 modules transformed (samples successfully inlined); `npm run lint` clean.
 
-**Checkpoint**: `npm run dev` produces a working Trace-tab (existing behaviour unchanged) + a Demo-tab with 5 empty sub-pages. Health badge auto-refreshes in the header. User-story work can now proceed in parallel.
+**Checkpoint**: `npm run dev` produces a working Trace-tab (existing behaviour unchanged) + a Demo-tab with 3 sub-pages (all populated post-Phase-6). Health badge auto-refreshes in the header. User-story work can now proceed in parallel.
 
 ---
 
@@ -107,9 +107,9 @@
 
 ## Phase 6: User Story 4 — Auditor retrieves VC by event hash (Priority: P2)
 
-**Goal**: Standalone retrieve form — paste any `eventHash`, see the latest VC, optionally see the supersedes chain.
+**Goal**: Standalone retrieve form — paste any `eventHash`, see the latest VC. Supersedes-chain rendering deferred to v1.1 (see [spec.md §User Story 4](spec.md) scope note).
 
-**Independent Test**: After submitting a Fishing event in Phase 3, copy the `eventHash` from the result card → open Retrieve VC sub-page → paste hash + select `gdst` → click Retrieve → see the VC. Toggle "include history" → for a fresh event, see a single-entry timeline. Confirm spec §Acceptance Scenarios US4 #1.
+**Independent Test**: After submitting a Fishing event in Phase 3, copy the `eventHash` from the result card → open Retrieve VC sub-page → paste hash + select `gdst` → click Retrieve → see the VC. Confirm spec §Acceptance Scenarios US4 #1.
 
 ### Implementation for User Story 4
 
@@ -141,7 +141,7 @@
 - **Foundational (Phase 2)**: Depends on Setup. **BLOCKS all user stories.**
 - **User Stories (Phases 3–6)**: All depend on Foundational.
   - **US1 (P1) and US2 (P1)** share every Phase-2 component — they proceed in parallel by file (different `pages/Submit*.tsx` files; both modify `views/GuardianDemo.tsx` for nav wiring, so T017 and T020 are sequential).
-  - **US3 (P2)** is independent of US1/US2 once Phase 2 is done; backend additions (T022-T024) can run in parallel with frontend (T025).
+  - **US3 (P2)** — **deferred to v1.1.** When resumed: independent of US1/US2 once Phase 2 is done; backend additions (T022-T024) can run in parallel with frontend (T025).
   - **US4 (P2)** is independent.
 - **Polish (Phase 8)**: Depends on all desired user stories being complete.
 
@@ -161,10 +161,11 @@
 
 ### Cross-story parallelism (with multiple developers)
 
-After Phase 2 ships, three developers could split:
+For MVP (US3 deferred), two developers could split post-Phase-2:
 - Dev A: US1 (T016-T018) + US2 (T019-T021)
-- Dev B: US3 frontend (T025-T027) + US3 backend (T022-T024) (or Dev C splits backend off)
-- Dev C: US4 (T028-T031)
+- Dev B: US4 (T028-T031)
+
+When US3 lands in v1.1, a third lane opens: backend (T022-T024) + frontend (T025-T027).
 
 The only cross-story serialisation is `views/GuardianDemo.tsx` — every "Wire \<Page /\> into nav" task touches it. Devs coordinate via merges, not lock-step ordering.
 
@@ -186,9 +187,11 @@ Each phase ends with a checkpoint that's independently demoable. After Phase 4 (
 
 ### Parallel Team Strategy
 
-With two developers post-Phase-2:
-- Dev A: US1 → US3 (frontend) → US4
-- Dev B: US2 → US3 (backend)
+With two developers post-Phase-2 (MVP scope):
+- Dev A: US1 → US4
+- Dev B: US2
+
+US3 (Health & Resilience) is deferred to v1.1 — when resumed, either dev picks it up alongside the polish pass.
 
 Phase 8 polish (~4 tasks) is whoever finishes their stack first.
 
@@ -199,6 +202,6 @@ Phase 8 polish (~4 tasks) is whoever finishes their stack first.
 - `[P]` = different files, no dependencies on incomplete tasks.
 - `[Story]` label maps user-story tasks to US1–US4 for traceability.
 - Each user story is independently completable and testable; the only inter-story coupling is `views/GuardianDemo.tsx` (nav wiring) which serialises one line per story.
-- Manual smoke tests (T018, T021, T027, T031) are the primary validation signal per spec.md ("manual validation against the running FastAPI"). Vitest/automated testing is opt-in (T035) and not the default.
+- Manual smoke tests T018 + T021 are the MVP validation signal per spec.md ("manual validation against the running FastAPI"). T027 (US3) and T031 (US4 supersedes-chain) ship with v1.1. Vitest/automated testing is opt-in (T035) and not the default.
 - Commit after each task or logical group.
 - Avoid: importing 001-guardian-integration backend modules into the trace-ui (they're Python, the UI is TypeScript — types are duplicated by hand in `types/`, intentionally).

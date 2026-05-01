@@ -49,7 +49,7 @@ If a viewer asks about MGS outages, point to the header badge and explain Consti
 |---------|-------|-----|
 | Vite dev server says "API offline" or 502 on `/api/v1` calls | FastAPI not running | Check Terminal 1; default expected at `http://localhost:8000` |
 | Guardian section greyed out with "policy not configured" | `GUARDIAN_*_POLICY_ID` empty | Re-run `scripts/build_*_policy.py` (or paste a known-good ID into `api/.env.dev`) |
-| VC poll spins for 5 minutes | MGS slow or breaker open | Health & Resilience tab shows `/guardian/health` state; if `breaker_open`, wait 60s |
+| VC poll spins for 5 minutes | MGS slow or breaker open | Header health badge shows breaker state; query `/api/v1/guardian/health` directly. If `breaker_open`, wait 60s for the half-open probe |
 | Outage simulator toggle has no effect or returns 404 | `GUARDIAN_DEMO_ROUTES_ENABLED` not set on the backend | Restart Terminal 1 with the flag |
 | `vite: command not found` | `node_modules` not installed | `cd ui/trace-ui && npm install` |
 | HMR broken after editing a TS file | Stale Vite cache (rare) | Stop Terminal 2, `rm -rf node_modules/.vite`, restart |

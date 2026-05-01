@@ -184,7 +184,7 @@ function GuardianStatusInline({
             not_compliant:
                 "rule predicate failed (gdst_min_rules returned False) — no VC will be issued",
             breaker_open:
-                "circuit breaker is open — see the Health & Resilience tab",
+                "circuit breaker is open — check the health badge in the header or query /api/v1/guardian/health directly",
         };
         return (
             <p className="text-sm text-gray-600">Guardian: skipped — {REASONS[guardian.reason]}.</p>
@@ -211,7 +211,7 @@ function ManualReviewPanel() {
             <p className="font-semibold text-amber-900">Manual review required</p>
             <p className="text-sm text-amber-800 mt-1">
                 The VC didn't arrive within 5 minutes (SC-007 ceiling). Check the
-                Health &amp; Resilience tab for breaker state, or query{" "}
+                health badge in the page header for breaker state, or query{" "}
                 <code>/api/v1/guardian/health</code> directly.
             </p>
         </div>
