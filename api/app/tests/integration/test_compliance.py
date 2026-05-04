@@ -17,12 +17,15 @@ def test_compliance_check_happy_path():
     - Call mocked contract
     - Return ok + txStatus SUCCESS
     """
-    # Minimal Shipping event that passes fsma_min_rules
+    # Minimal Shipping event that passes fsma_min_rules. snake_case keys to
+    # match the on-disk samples (the model previously declared camelCase here,
+    # which silently dropped these fields and made every shipping event fail
+    # the predicate).
     event = {
         "eventType": "shipping",
         "event_time": "2025-10-03T12:08:00.000Z",
-        "shipFrom": "9506001112229",
-        "shipTo": "9506001112230",
+        "ship_from": "9506001112229",
+        "ship_to": "9506001112230",
         "items": [{"epc": "urn:epc:class:lgtin:9506000.1233.a", "quantity": 12.0, "unit_of_measurement": "kg"}],
     }
 

@@ -24,11 +24,14 @@ class ComplianceEvent(BaseModel):
     biz_location: Optional[str] = None
     quantity_list: Optional[List[QuantityItem]] = None
 
-    # Shipping / Receiving
-    shipFrom: Optional[str] = None
-    shipTo: Optional[str] = None
-    shippedFrom: Optional[str] = None
-    receivedAt: Optional[str] = None
+    # Shipping / Receiving — snake_case to match the on-disk FSMA samples and
+    # the field names checked by `fsma_min_rules`. Pydantic was previously
+    # camelCase here, which silently dropped the snake_case keys on parse and
+    # made every shipping/receiving event fail the compliance predicate.
+    ship_from: Optional[str] = None
+    ship_to: Optional[str] = None
+    shipped_from: Optional[str] = None
+    received_at: Optional[str] = None
     items: Optional[List[QuantityItem]] = None
 
     # Transforming

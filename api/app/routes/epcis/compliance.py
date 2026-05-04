@@ -47,11 +47,19 @@ async def check_and_record(event: ComplianceEvent):
 
     return {
         "status": "ok",
+        "transactionId": tx["transactionId"],
+        "receiptStatus": tx["receiptStatus"],
+        "eventType": evt_dict["eventType"],
+        "eventHash": event_hash_hex,
         "isCompliant": is_compliant,
-        "txStatus": str(getattr(tx, "status", "UNKNOWN")),
+        "source": "starfish",
+        "guardian": guardian_submission,
+        # Legacy fields — drop after [test_compliance + status route migrate to
+        # `eventHash`/`receiptStatus`]. Kept now to avoid breaking
+        # `test_compliance_check_happy_path` and `compliance/status/{hash}`.
+        "txStatus": tx["receiptStatus"],
         "contractId": str(contract_id),
         "eventHashHex": event_hash_hex,
-        "guardian": guardian_submission,
     }
 
 

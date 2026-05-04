@@ -38,7 +38,7 @@ def check_and_record(event: Union[AggregationEvent, FishingEvent, LandingEvent, 
     return {
         "status": "ok",
         "isCompliant": is_compliant,
-        "txStatus": str(getattr(tx, "status", "UNKNOWN")),
+        "txStatus": tx["receiptStatus"],
         "contractId": str(contract_id),
         "eventHashHex": "0x" + event_hash.hex(),
     }

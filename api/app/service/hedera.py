@@ -30,15 +30,17 @@ def hedera_post_transaction(encrypted_payload: dict) -> dict:
         "receiptStatus": ResponseCode(receipt.status).name,
     }
 
-def hedera_contract_check_event(event_hash: bytes, is_compliant: bool, event_type: str, contract_id) -> ContractExecuteTransaction:
+def hedera_contract_check_event(event_hash: bytes, is_compliant: bool, event_type: str, contract_id) -> dict:
+    """Records the compliance verdict on-chain. Returns the same
+    `{transactionId, receiptStatus}` shape as `hedera_post_transaction` so
+    callers don't need to know which underlying SDK type they got back."""
     params = (
         ContractFunctionParameters()
-        .add_bytes32(event_hash)   
-        .add_string(event_type)    
-        .add_bool(is_compliant)            
+        .add_bytes32(event_hash)
+        .add_string(event_type)
+        .add_bool(is_compliant)
     )
 
-    # State-changing call uses ContractExecuteTransaction
     tx = (
         ContractExecuteTransaction()
         .set_contract_id(contract_id)
@@ -46,11 +48,14 @@ def hedera_contract_check_event(event_hash: bytes, is_compliant: bool, event_typ
         .set_function("recordEvent", params)
         .execute(client)
     )
-    
+
     if tx.status != ResponseCode.SUCCESS:
         raise HTTPException(status_code=500, detail=f"Contract execution failed with status: {ResponseCode(tx.status).name}")
-    
-    return tx
+
+    return {
+        "transactionId": str(tx.transaction_id),
+        "receiptStatus": ResponseCode(tx.status).name,
+    }
 
 def hedera_contract_get_files(event_hash_hex: str, contract_id) -> list:
     params = (
