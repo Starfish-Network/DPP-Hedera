@@ -4,11 +4,11 @@ import { ApiError, getPolicyVc, type PolicyVcEnvelope } from "../lib/api";
 import { getSubject } from "../lib/vc";
 import type { PolicySlug } from "../types/PolicySlug";
 
-interface SlotState {
-    status: "loading" | "ready" | "not_found" | "error";
-    envelope?: PolicyVcEnvelope;
-    error?: ApiError | Error;
-}
+type SlotState =
+    | { status: "loading" }
+    | { status: "ready"; envelope: PolicyVcEnvelope }
+    | { status: "not_found" }
+    | { status: "error"; error: ApiError | Error };
 
 const SLUGS: ReadonlyArray<{ slug: PolicySlug; label: string }> = [
     { slug: "gdst", label: "GDST" },
@@ -113,12 +113,12 @@ function PolicyVcCard({ slug, label, state }: CardProps) {
         return (
             <div className="space-y-2">
                 <h3 className="font-semibold text-red-900">{label} policy VC unavailable</h3>
-                <ErrorPanel error={state.error!} />
+                <ErrorPanel error={state.error} />
             </div>
         );
     }
 
-    const env = state.envelope!;
+    const env = state.envelope;
     const vc = env.document;
     const cs = getSubject(vc);
     const ipfsCid = typeof cs.cid === "string" ? cs.cid : null;
@@ -156,7 +156,7 @@ function PolicyVcCard({ slug, label, state }: CardProps) {
                                 href={`https://ipfs.io/ipfs/${ipfsCid}`}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="text-blue-700 hover:underline font-mono"
+                                className={`hover:underline font-mono ${palette.meta}`}
                             >
                                 {ipfsCid}
                             </a>

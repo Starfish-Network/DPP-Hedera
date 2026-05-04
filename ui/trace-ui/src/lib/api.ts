@@ -66,11 +66,13 @@ export async function getHealth(): Promise<GuardianHealth> {
     return request("/api/v1/guardian/health");
 }
 
-// MGS publishes a self-describing VC for every policy (`type: "POLICY"`).
-// This wraps the upstream /search-documents lookup the backend exposes at
-// /guardian/{slug}/policy-vc. The shape is an MGS document envelope with
-// the W3C VC under `.document` — accepted by ApiError(404) when the policy
-// isn't configured (returns null per FR-007 not-yet-issued semantics).
+// MGS document envelope wrapping the policy's self-describing W3C VC under
+// `.document`. Fetched from /guardian/{slug}/policy-vc; 404 returns null per
+// FR-007 not-yet-issued semantics.
+//
+// Only the fields we render are declared. MGS returns extras (tenantId,
+// createDate, _propHash, hash, owner, documentFileId, etc.) — add them
+// here when a consumer needs one.
 export interface PolicyVcEnvelope {
     readonly id: string;
     readonly type: string;
@@ -78,7 +80,6 @@ export interface PolicyVcEnvelope {
     readonly hederaStatus?: string;
     readonly signature?: number;
     readonly document: VerifiableCredential;
-    readonly [key: string]: unknown;
 }
 
 export async function getPolicyVc(slug: PolicySlug): Promise<PolicyVcEnvelope | null> {

@@ -5,7 +5,7 @@
 
 ## Summary
 
-**Extend** the existing `ui/trace-ui/` React app with a Guardian Demo shell — a top-nav switcher between the existing Trace Explorer and a new three-section MVP demo (Submit GDST / Submit FSMA / Retrieve VC). The Health & Resilience tab (US3) is deferred to v1.1 (see [spec.md §User Story 3](spec.md)); the always-visible header health badge covers the lightweight resilience signal in MVP. The demo calls the live `/api/v1/*` endpoints through Vite's existing dev proxy. No new framework, no new build pipeline, no new top-level directory; the demo lands as added components, hooks, and types under `ui/trace-ui/src/`.
+**Extend** the existing `ui/trace-ui/` React app with a Guardian Demo shell — a top-nav switcher between the existing Trace Explorer and a new three-section MVP demo (**Policy VCs** default / Submit GDST / Submit FSMA). The Retrieve VC tab is implementation-complete but hidden in nav while MGS event-VC issuance is broken (see [spec.md §FR-007 status](spec.md)). The Health & Resilience tab (US3) is deferred to v1.1 (see [spec.md §User Story 3](spec.md)); the always-visible header health badge covers the lightweight resilience signal in MVP. The demo calls the live `/api/v1/*` endpoints through Vite's existing dev proxy. No new framework, no new build pipeline, no new top-level directory; the demo lands as added components, hooks, and types under `ui/trace-ui/src/`.
 
 ## Technical Context
 
@@ -40,7 +40,7 @@ Recorded in [research.md](research.md). Resolves:
 
 1. **UI framework choice** — extend existing trace-ui (revised from Streamlit greenfield after surveying the repo).
 2. **MGS-outage simulation mechanism** — dev-only feature-flagged FastAPI route at `POST /api/v1/_demo/breaker/{inject,clear}`.
-3. **VC-polling cadence and React integration** — 5s poll / 5-min ceiling via a custom `usePollForVc` hook with AbortController cleanup.
+3. **VC-polling cadence and React integration** — 5s poll / 5-min ceiling via a custom `usePollForVc` hook with AbortController cleanup. *(parked: hook retained in `hooks/` but not currently wired to any submit page, since MGS event-VC issuance is broken — see FR-003 status. Restoring is one import + one prop.)*
 
 ## Phase 1 — Design
 
@@ -57,7 +57,8 @@ ui/trace-ui/src/
 ├── pages/                                   # NEW — each section of the Guardian Demo
 │   ├── SubmitGdst.tsx
 │   ├── SubmitFsma.tsx
-│   └── RetrieveVc.tsx
+│   ├── PolicyVcs.tsx                        # NEW (Phase 7 pivot — default tab)
+│   └── RetrieveVc.tsx                       # implementation present, tab hidden in nav (FR-007 status)
 │   # HealthAndResilience.tsx — deferred to v1.1 with US3
 ├── components/
 │   ├── EventFiles.tsx                       # existing (unchanged)
@@ -65,7 +66,8 @@ ui/trace-ui/src/
 │   ├── NodeModal.tsx                        # existing (unchanged)
 │   ├── SamplePicker.tsx                     # NEW — dropdown over samples/{gdst,fsma}/*.json
 │   ├── GuaranteedFieldsCard.tsx             # NEW — renders the VC's Guaranteed-fields contract
-│   └── ComplianceBadge.tsx                  # NEW — colour-coded outcome label
+│   ├── ComplianceBadge.tsx                  # NEW — colour-coded outcome label
+│   └── SubmitFlow.tsx                       # NEW — shared ErrorPanel + SubmitResultPanel + GuardianStatusInline
 │   # VcTimeline.tsx — supersedes-chain renderer (deferred to v1.1)
 ├── hooks/
 │   ├── useEventFiles.ts                     # existing (unchanged)
@@ -73,7 +75,8 @@ ui/trace-ui/src/
 │   └── useHealthPoll.ts                     # NEW — 5s auto-refresh of /guardian/health
 ├── lib/
 │   ├── api.ts                               # NEW — typed wrapper around /api/v1/* fetches
-│   └── samples.ts                           # NEW — vite glob-import of sample JSONs
+│   ├── samples.ts                           # NEW — vite glob-import of sample JSONs
+│   └── vc.ts                                # NEW — getSubject() helper (extracted for fast-refresh)
 └── types/
     ├── GDSTEvent.ts                         # existing
     ├── StarfishEvents.ts                    # existing
@@ -160,7 +163,7 @@ Expected shape (preview):
 - T006: `lib/api.ts` typed fetch wrapper.
 - T007: `lib/samples.ts` vite glob loader.
 - T008: `usePollForVc` + `useHealthPoll` hooks.
-- T009-T011 [P]: Three MVP demo pages (SubmitGdst, SubmitFsma, RetrieveVc). HealthAndResilience deferred to v1.1.
+- T009-T011 [P]: Three MVP demo pages — **PolicyVcs (Phase 7, default tab)**, SubmitGdst, SubmitFsma. RetrieveVc implementation present but tab hidden (FR-007 status). HealthAndResilience deferred to v1.1.
 - T014: Shared UI components (`SamplePicker`, `GuaranteedFieldsCard`, `ComplianceBadge`). `VcTimeline` deferred to v1.1.
 - T015: New TypeScript types (`GuardianHealth`, `VerifiableCredential`); extend `ComplianceCheckResponse`.
 - T016: README polish in `ui/trace-ui/README.md`.

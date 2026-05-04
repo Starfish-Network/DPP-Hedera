@@ -67,6 +67,22 @@ A separate "Retrieve" tab/page accepts an `eventHash` and shows the latest VC.
 
 1. **Given** a VC exists for an `eventHash`, **When** the user enters the hash and clicks Retrieve, **Then** the UI shows the VC's `credentialSubject` and `proof` summary.
 
+### User Story 5 — Reviewer Sees Both Policies Are Real & On-Chain (Priority: P1 — **pivot, default tab**)
+
+> **Pivot context.** Added when MGS event-VC issuance was found to be silently broken (see open MGS support ticket; six GDST policy versions and one FSMA version produced zero issued event VCs despite well-formed submissions). The demo needed *something* that proves both compliance frameworks are real, signed by the SR DID, and on-chain — independent of the broken event-VC pipeline. Each Guardian policy publishes a self-describing W3C VC at policy-publish time (`type: "POLICY"`), available via MGS's `/search-documents`. This story exposes that surface.
+
+A reviewer or auditor opens the demo and lands on the **Policy VCs** tab (default). Two cards render side-by-side — GDST (blue) and FSMA 204 (green) — each showing the policy's name, tag, version, issuer DID (the SR), issuance timestamp, policyId, and an IPFS-anchored link to the policy artefact. Expanding "Full credential" reveals the W3C VC envelope verbatim. The viewer can click each IPFS CID to verify the policy artefact independently of this UI.
+
+**Why this priority**: This is the demo's anchor while event-VC issuance is gated on MGS. It directly satisfies Constitution §I ("Policies are the product") — the most policy-centric surface in the app.
+
+**Independent Test**: With both `GUARDIAN_GDST_POLICY_ID` and `GUARDIAN_FSMA_POLICY_ID` populated, navigate to the Demo tab → Policy VCs (default sub-page). Confirm both cards land in the `ready` state within ~2s, show distinct colour palettes, and the issuer DID matches the SR DID in `api/.env.dev`. Click each IPFS link → IPFS gateway resolves the policy artefact at `https://ipfs.io/ipfs/<cid>`.
+
+**Acceptance Scenarios**:
+
+1. **Given** both policies are published and configured, **When** the user opens the Demo tab, **Then** the UI fetches `GET /api/v1/guardian/{slug}/policy-vc` for each slug in parallel and renders both cards within 2s of tab activation.
+2. **Given** one policy is unconfigured (`GUARDIAN_FSMA_POLICY_ID=`), **When** the user opens the Demo tab, **Then** the configured policy renders normally and the unconfigured one shows an explanatory empty state pointing at `scripts/build_fsma_policy.py`.
+3. **Given** the backend is unreachable, **When** the user opens the Demo tab, **Then** both cards land in the `error` state with the underlying ApiError surfaced via the shared `<ErrorPanel>`; the global header health badge flips to red "API offline".
+
 ### Edge Cases
 
 - Backend not running: the UI's status indicator (top-right) shows "API offline" instead of crashing on the first action.
@@ -80,15 +96,16 @@ A separate "Retrieve" tab/page accepts an `eventHash` and shows the latest VC.
 
 - **FR-001**: The UI MUST present a sample-event picker for both GDST (7 CTEs) and FSMA (6 event types) sourced live from `samples/gdst/*.json` and `samples/fsma/*.json` so the picker stays in sync with what's checked into the repo.
 - **FR-002**: The UI MUST submit the picked sample to the existing `POST /api/v1/gdst/events` (GDST) or `POST /api/v1/epcis/compliance/check` (FSMA) endpoints — no new backend route.
-- **FR-003**: The UI MUST poll `GET /api/v1/guardian/{slug}/vc/{event_hash}` after submission and surface the VC's Guaranteed fields (`eventHash`, `<slug>EventType`, `complianceStatus`, `policyVersion`, `issuedAt`, optional `supersedes`, GDST-only `species`) plus the full `credentialSubject` JSON.
+- **FR-003** *(deferred — see Phase 7 scope note)*: The UI MUST poll `GET /api/v1/guardian/{slug}/vc/{event_hash}` after submission and surface the VC's Guaranteed fields (`eventHash`, `<slug>EventType`, `complianceStatus`, `policyVersion`, `issuedAt`, optional `supersedes`, GDST-only `species`) plus the full `credentialSubject` JSON. **Status**: polling was removed from both submit pages while MGS event-VC issuance is broken (open MGS support ticket — `customLogicBlock` chain dies silently inside `@CatchErrors()`). The `usePollForVc` hook + `lib/api.ts::getVc` are kept in place; restoring is one import + one prop wiring once MGS issuance returns. The `<GuaranteedFieldsCard>` component is also retained and used by Phase 7's Policy VCs cards.
 - **FR-004**: The UI MUST display the response object verbatim alongside a human-readable summary so a reviewer can correlate the underlying API to the rendered story.
 - **FR-005**: The UI MUST surface `/api/v1/guardian/health` live (auto-refresh every 5s) with the four states (`ok | tos_required | breaker_open | unavailable`).
 - **FR-006**: The UI MUST provide a "simulate MGS outage" toggle that tells the backend to inject failures (mechanism TBD in research.md — likely an env-toggleable test endpoint OR a respx-style request interceptor).
-- **FR-007**: The UI MUST allow VC retrieval by arbitrary `eventHash` (not just events submitted within the current session). (The `?history=true` supersedes-chain toggle is deferred to v1.1 with US4 — see scope note above.)
+- **FR-007** *(implementation present, surface temporarily hidden)*: The UI MUST allow VC retrieval by arbitrary `eventHash` (not just events submitted within the current session). **Status**: [`pages/RetrieveVc.tsx`](../../ui/trace-ui/src/pages/RetrieveVc.tsx) and [`lib/api.ts::getVc`](../../ui/trace-ui/src/lib/api.ts) are wired and tested, but the Retrieve tab is hidden from `views/GuardianDemo.tsx`'s nav while MGS isn't issuing event VCs (no eventHash to retrieve makes the surface misleading). Re-add by restoring the import + nav entry + render branch once MGS issuance returns. The `?history=true` supersedes-chain toggle remains deferred to v1.1 with US4 per the scope note.
 - **FR-008**: The UI MUST treat `isCompliant: false` events as a first-class outcome — show the HCS receipt + the explicit "Guardian skipped: not_compliant" rationale rather than treating it as an error.
 - **FR-009**: The UI MUST work offline-of-Guardian — if `GUARDIAN_*_POLICY_ID` is empty or `/guardian/health` reports `breaker_open`, the UI greys the relevant Guardian panels but keeps the HCS-submit half operational (Constitution §IV).
 - **FR-010**: The UI MUST extend the existing [ui/trace-ui/](../../ui/trace-ui/) React + Vite + TypeScript + Tailwind app. Launch is `cd ui/trace-ui && npm run dev` alongside the existing FastAPI server — no second frontend, no docker-compose required for a 5-minute showcase. Reuses the Vite proxy at [vite.config.ts](../../ui/trace-ui/vite.config.ts) that already routes `/api/v1` to `http://localhost:8000`.
 - **FR-011**: The UI MUST NOT introduce a parallel data store, schema mapper, or compliance predicate. The existing FastAPI is the only backend; this layer is presentation-only. Existing TypeScript types (`GDSTEvent`, `StarfishEvent`, `ComplianceCheckResponse`) are extended additively rather than reimplemented.
+- **FR-012** *(US5 — Phase 7)*: The UI MUST display each configured Guardian policy's self-describing W3C VC (the `type: "POLICY"` document MGS auto-publishes at policy-publish time), fetched via `GET /api/v1/guardian/{slug}/policy-vc`. Each card renders the policy name, tag, version, issuer DID, issuance timestamp, policyId, IPFS CID + clickable gateway link, and a `<details>` expander showing the full W3C VC envelope. Cards render with per-slug colour palettes (GDST blue, FSMA green) and load in parallel.
 
 ### Key Entities
 
@@ -104,9 +121,9 @@ The UI surfaces existing entities — does not introduce new ones:
 
 ### Measurable Outcomes
 
-- **SC-001**: A first-time viewer can submit a GDST sample and see the issued VC appear in the UI within **90 seconds** without any documentation lookup. Measured by walking three new colleagues through an unguided demo.
+- **SC-001** *(BLOCKED on upstream MGS issue)*: A first-time viewer can submit a GDST sample and see the issued VC appear in the UI within **90 seconds** without any documentation lookup. Measured by walking three new colleagues through an unguided demo. **Status**: gated on the open MGS support ticket — event-VC issuance is dying silently inside the policy worker. The Phase 7 Policy VCs surface partially fulfils "see a VC appear" by rendering each policy's self-describing W3C VC; the GDST/FSMA event-VC half lights up when MGS resumes issuance.
 - **SC-002**: The Guardian Demo extension adds **zero net new external dependencies** to the existing `ui/trace-ui/package.json` for the basic submit/retrieve/health flows. (One small dev-only backend dep may land for the simulator, gated behind `GUARDIAN_DEMO_ROUTES_ENABLED`.) No new build pipeline.
-- **SC-003**: The UI starts up and renders the three MVP user-story flows (US1, US2, US4) correctly with **`pip install -r api/requirements.txt`** for the backend and **`cd ui/trace-ui && npm install` (already done) + `npm run dev`** for the frontend. Measured by reproducing on a clean checkout. (US3 is deferred to v1.1 — see note above.)
+- **SC-003**: The UI starts up and renders the three MVP demo tabs correctly — **Policy VCs** (Phase 7, default), **Submit GDST** (US1), and **Submit FSMA** (US2) — with **`pip install -r api/requirements.txt`** for the backend and **`cd ui/trace-ui && npm install` (already done) + `npm run dev`** for the frontend. Measured by reproducing on a clean checkout. (US3 deferred to v1.1; US4 implementation present but tab hidden — see FR-007 status and Phase 7 scope note.)
 - **SC-004**: The Guardian-integration spec's claims FR-004 (idempotency) and FR-007 (retrieval) are each **directly demonstrable** via a button or toggle in the UI. **FR-006 (breaker)** is partially demonstrated via the always-visible header health badge; the on-demand simulator that exercises the open→half-open→closed cycle moves to v1.1 with US3. **FR-014 (superseding)** is deferred to v1.1 — backend lacks a correction-submission route, so a chain can't be created from the UI; see US4 scope note.
 - **SC-005**: The UI degrades gracefully when Guardian is unconfigured / unavailable: a viewer sees an explanatory empty state, not a stack trace. Tested by running with `GUARDIAN_FSMA_POLICY_ID=` (empty) and `GUARDIAN_API_URL=http://invalid:9999`.
 

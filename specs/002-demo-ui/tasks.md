@@ -41,9 +41,9 @@
 - [X] T012 [P] Created [ui/trace-ui/src/components/GuaranteedFieldsCard.tsx](ui/trace-ui/src/components/GuaranteedFieldsCard.tsx) — `FIELDS` lookup table per slug (GDST has 6 entries with `species`, FSMA has 5 without). Renders Issuer + Event Hash always, then iterates the slug's field list skipping undefined. Raw `credentialSubject` in a `<details>` expander.
 - [X] T013 Lifted the existing [ui/trace-ui/src/App.tsx](ui/trace-ui/src/App.tsx) body verbatim into [ui/trace-ui/src/views/TraceExplorer.tsx](ui/trace-ui/src/views/TraceExplorer.tsx) — relative imports shifted one level up (`./components/*` → `../components/*`, etc.). Default → named export `TraceExplorer`. Outer wrapper `<div className="min-h-screen bg-gray-50 p-6">` removed since the App shell now provides the page chrome; inner header h1 demoted to h2 to match the new hierarchy.
 - [X] T014 Rewrote [ui/trace-ui/src/App.tsx](ui/trace-ui/src/App.tsx) as a thin nav shell — top-nav with `useState<"trace" | "demo">`, global header `<span>` health badge driven by `useHealthPoll()` with 4 colour states (red API offline / green ok / amber breaker_open / grey other). `<TabButton>` typed with `Readonly<>` props (S6759).
-- [X] T015 Created [ui/trace-ui/src/views/GuardianDemo.tsx](ui/trace-ui/src/views/GuardianDemo.tsx) — sub-nav grid (12rem aside + main panel). Initial scaffold rendered placeholders for every planned tab; after the About-tab cut and Phase-5 deferral the live tab list is **3** (Submit GDST / Submit FSMA / Retrieve VC). **Build verified at scaffold time**: `npm run build` produces `dist/` with 500 modules transformed (samples successfully inlined); `npm run lint` clean.
+- [X] T015 Created [ui/trace-ui/src/views/GuardianDemo.tsx](ui/trace-ui/src/views/GuardianDemo.tsx) — sub-nav grid (12rem aside + main panel). Initial scaffold rendered placeholders for every planned tab; after the About-tab cut, Phase-5 deferral, and the Phase-7 pivot, the **current** live tab list is **3**: Policy VCs (default) / Submit GDST / Submit FSMA. The Retrieve VC tab is hidden in nav while MGS event-VC issuance is broken — see FR-007 status in [spec.md](spec.md). **Build verified at scaffold time**: `npm run build` produces `dist/` with 500 modules transformed; `npm run lint` clean.
 
-**Checkpoint**: `npm run dev` produces a working Trace-tab (existing behaviour unchanged) + a Demo-tab with 3 sub-pages (all populated post-Phase-6). Health badge auto-refreshes in the header. User-story work can now proceed in parallel.
+**Checkpoint**: `npm run dev` produces a working Trace-tab (existing behaviour unchanged) + a Demo-tab with 3 active sub-pages (Policy VCs default, Submit GDST, Submit FSMA). Health badge auto-refreshes in the header. User-story work can now proceed in parallel.
 
 ---
 
@@ -118,7 +118,23 @@
 - [X] T030 [US4] Wired `<RetrieveVc />` into [ui/trace-ui/src/views/GuardianDemo.tsx](ui/trace-ui/src/views/GuardianDemo.tsx) — `tab === "retrieve"` now renders the page; `<Placeholder>` removed since all 3 MVP tabs are populated. **Build verified**: 522 modules transformed, `npm run lint` clean.
 - [~] T031 [US4] **Deferred to v1.1.** Correction-submission path doesn't exist in the API today, so the timeline-based smoke test is not runnable. Single-VC retrieval is covered by T018/T021's submit-then-retrieve cycle.
 
-**Checkpoint**: Single-VC retrieval demonstrable (FR-007 visible). FR-014 (superseding) ships with v1.1 once a correction-submission route lands.
+**Checkpoint**: FR-007 implementation complete (page + lib/api wrapper exist and pass build/lint). User-facing surface temporarily hidden in nav per FR-007 status in [spec.md](spec.md) — re-add by restoring the import + nav entry + render branch in `views/GuardianDemo.tsx` once MGS event-VC issuance returns. FR-014 (superseding) ships with v1.1 once a correction-submission route lands.
+
+---
+
+## Phase 7: Policy VCs tab (pivot — added when MGS event-VC issuance was blocked)
+
+**Goal**: While the MGS team investigates the silent failure in `customLogicBlock`, give the demo a working "look, both policies are real and signed by the SR DID, on-chain" surface. The POLICY-type document MGS auto-publishes for every published policy is independent of event-VC issuance and works today.
+
+**Independent Test**: Open the Demo tab — "Policy VCs" is the default sub-page. Confirm both cards render (GDST blue, FSMA green) within ~2s, each showing policy name + tag + issuer DID + IPFS link. Click each IPFS link → IPFS gateway resolves the policy artefact. Expand "Full credential" details → see the full W3C VC envelope.
+
+### Implementation for Phase 7 (already landed)
+
+- [X] T038 Backend: added `GuardianClient.get_policy_vc(policy_id)` ([api/app/service/guardian_client.py](api/app/service/guardian_client.py)) calling `GET /policies/{id}/search-documents` and filtering `type: "POLICY"`. Added `GET /api/v1/guardian/{slug}/policy-vc` route ([api/app/routes/guardian/policy.py](api/app/routes/guardian/policy.py)) with the same auth/configured/breaker error mapping as event-VC retrieval.
+- [X] T039 Frontend: added [`getPolicyVc` + `PolicyVcEnvelope`](ui/trace-ui/src/lib/api.ts) and the [`PolicyVcs` page](ui/trace-ui/src/pages/PolicyVcs.tsx) with parallel-fetch + per-slug `PALETTE` + discriminated `SlotState` union. Wired in [GuardianDemo.tsx](ui/trace-ui/src/views/GuardianDemo.tsx) as the default tab.
+- [ ] T040 Manual smoke: with a healthy backend (`set -a && source api/.env.dev && set +a && uvicorn app.main:app --port 8000 --app-dir api --reload`), open `npm run dev`, navigate to Demo tab → Policy VCs. Confirm both cards land in the `ready` state (not `loading`/`not_found`/`error`), the issuer DID matches the SR DID in `api/.env.dev`, and the IPFS CID resolves at `https://ipfs.io/ipfs/<cid>`.
+
+**Checkpoint**: Demo opens on a tab that proves both policies are real, signed, and on-chain — independent of the unresolved event-VC issuance. Trim or remove this phase when event VCs come back.
 
 ---
 
@@ -129,7 +145,7 @@
 - [ ] T034 [P] Update [ui/trace-ui/README.md](ui/trace-ui/README.md) — replace the Vite-template boilerplate with: project intent (Trace Explorer + Guardian Demo), prerequisites (FastAPI backend running, `npm install` done), `npm run dev` instruction, link to [specs/002-demo-ui/quickstart.md](specs/002-demo-ui/quickstart.md) for the 5-min demo script.
 - [ ] T035 [P] *(optional)* Add Vitest config + a small test file at [ui/trace-ui/src/lib/__tests__/api.test.ts](ui/trace-ui/src/lib/__tests__/api.test.ts) covering happy + 404 paths of each `lib/api.ts` wrapper using `msw` for HTTP mocks. Add `vitest`, `@testing-library/react`, `msw` to devDependencies. Skip this task if introducing a test runner conflicts with team velocity — manual validation via T018/T021/T027/T031 is the primary signal.
 - [ ] T036 Run [specs/002-demo-ui/quickstart.md](specs/002-demo-ui/quickstart.md) end-to-end against a live backend — execute the 5-minute demo script verbatim, fix any drift between the runbook and the actual UI behaviour.
-- [ ] T037 Tidy: confirm zero `any` types in new TS files (use `unknown` for VC raw JSON, narrow at boundaries), zero browser console warnings during a clean session, no dead imports flagged by ESLint. Run `npm run lint` and fix any issues introduced by the demo work.
+- [ ] T037 Tidy: confirm zero `any` types in new TS files (use `unknown` for VC raw JSON, narrow at boundaries), zero browser console warnings during a clean session, no dead imports flagged by ESLint. Run `npm run lint` and fix any issues introduced by the demo work. **Confirm dead-code-by-design**: `pages/RetrieveVc.tsx` and `hooks/usePollForVc.ts` (+ `usePoll.ts`) are intentionally retained but unused while MGS event-VC issuance is broken — each file has a top-of-file comment documenting the parking. ESLint's `no-unused-modules` (or equivalent) shouldn't be added in MVP since it'd flag these intentional parks.
 
 ---
 
@@ -156,16 +172,16 @@
 - **Phase 2**: T003-T006 [P] (4 type/lib files), T008+T009 [P] (after T007 lands), T010-T012 [P] (after T006 + T004 land).
 - **Phase 3**: Only T016 marked [P]; T017 + T018 are sequential single-file ops.
 - **Phase 5**: T022 + T023 [P] (different files — backend route vs guardian_client.py).
-- **Phase 6**: T028 [P] within the phase.
+- **Phase 6**: ~~T028 [P]~~ — T028 dropped from MVP (see entry).
 - **Phase 8**: T034, T035 [P].
 
 ### Cross-story parallelism (with multiple developers)
 
-For MVP (US3 deferred), two developers could split post-Phase-2:
+For MVP (US3 deferred; US4 retrieve-tab hidden), two developers could split post-Phase-2:
 - Dev A: US1 (T016-T018) + US2 (T019-T021)
-- Dev B: US4 (T028-T031)
+- Dev B: Phase 7 Policy VCs pivot (T038-T040)
 
-When US3 lands in v1.1, a third lane opens: backend (T022-T024) + frontend (T025-T027).
+US4's `RetrieveVc.tsx` (T029) and `lib/api.ts::getVc` (T007) are already implemented but the tab is hidden in nav — re-enabling is one line in `views/GuardianDemo.tsx` once MGS event-VC issuance returns. When US3 lands in v1.1, a third lane opens: backend (T022-T024) + frontend (T025-T027).
 
 The only cross-story serialisation is `views/GuardianDemo.tsx` — every "Wire \<Page /\> into nav" task touches it. Devs coordinate via merges, not lock-step ordering.
 
@@ -187,11 +203,11 @@ Each phase ends with a checkpoint that's independently demoable. After Phase 4 (
 
 ### Parallel Team Strategy
 
-With two developers post-Phase-2 (MVP scope):
-- Dev A: US1 → US4
+With two developers post-Phase-2 (MVP scope, post Phase-7 pivot):
+- Dev A: US1 → Phase 7 Policy VCs
 - Dev B: US2
 
-US3 (Health & Resilience) is deferred to v1.1 — when resumed, either dev picks it up alongside the polish pass.
+US3 (Health & Resilience) is deferred to v1.1 — when resumed, either dev picks it up alongside the polish pass. US4 (Retrieve VC) is implementation-complete but tab is hidden in nav until MGS event-VC issuance returns.
 
 Phase 8 polish (~4 tasks) is whoever finishes their stack first.
 

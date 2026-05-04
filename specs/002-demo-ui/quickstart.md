@@ -32,14 +32,14 @@ npm run dev
 
 Vite prints a `http://localhost:5173` URL. The `/api/v1/*` requests are proxied to `http://localhost:8000` per [vite.config.ts](../../ui/trace-ui/vite.config.ts) — no CORS dance.
 
-Top nav has two tabs: **Trace Explorer** (the original graph view, unchanged) and **Guardian Demo**. The demo tab has a sub-nav for Submit GDST / Submit FSMA / Retrieve VC. The header always shows a live Guardian-health badge (red API offline / green ok / amber breaker_open / grey other) — that's the resilience signal in MVP. The dedicated Health & Resilience tab is deferred to v1.1 (see [spec.md §User Story 3](spec.md)).
+Top nav has two tabs: **Trace Explorer** (the original graph view, unchanged) and **Guardian Demo**. The demo tab has a sub-nav for **Policy VCs** (default — see [spec.md §User Story 5](spec.md)) / Submit GDST / Submit FSMA. The Retrieve VC tab is implementation-complete but hidden while MGS event-VC issuance is broken (see [spec.md §FR-007 status](spec.md)). The header always shows a live Guardian-health badge (red API offline / green ok / amber breaker_open / grey other) — that's the resilience signal in MVP. The dedicated Health & Resilience tab is deferred to v1.1 (see [spec.md §User Story 3](spec.md)).
 
 ## Demo script (~3-4 minutes)
 
-1. **Submit GDST** (~90s): pick `fishing.json` from the dropdown, click Submit, watch the HCS receipt appear, then the polling indicator, then the issued VC's Guaranteed fields. Copy the `eventHash`.
-2. **Retrieve VC** (~30s): paste the `eventHash` into the Retrieve form, show the VC. (The supersedes-chain "Include history" toggle ships with v1.1 once a correction-submission route lands; see [spec.md §User Story 4](spec.md).)
-3. **Submit FSMA** (~60s): pick `creating.json`, show the same loop produces an `FSMA204ComplianceCredential` with `fsma204EventType: "creating"`. Demonstrates two policies via one registry pattern.
-4. (Bonus) **Switch to Trace Explorer**: enter a product EPC/lot used in the events you just submitted and show the upstream/downstream graph rendering on top of the HCS-recorded events. Demonstrates that the Guardian VCs and the trace graph share one source of truth (HCS).
+1. **Policy VCs** (~60s, default landing tab): both cards render (GDST blue, FSMA 204 green) with policy name, tag, version, issuer DID (the SR), and an IPFS link. Click each IPFS CID → IPFS gateway resolves the policy artefact independently. Establishes that both compliance frameworks are real, signed by the SR, and on-chain. See [spec.md §User Story 5](spec.md).
+2. **Submit GDST** (~90s): pick `fishing.json` from the dropdown, click Submit, watch the HCS receipt + Guardian forwarding status appear. *(Note: VC polling is currently disabled while MGS event-VC issuance is being investigated — see FR-003 status. The HCS half of the loop is fully functional.)*
+3. **Submit FSMA** (~60s): pick `creating.json`, show the same submit-and-receipt path. Demonstrates two policies via one registry pattern.
+4. (Bonus) **Switch to Trace Explorer**: enter a product EPC/lot used in the events you just submitted and show the upstream/downstream graph rendering on top of the HCS-recorded events. Demonstrates that the Policy VCs and the trace graph share one source of truth (HCS).
 
 If a viewer asks about MGS outages, point to the header badge and explain Constitution §IV: HCS keeps writing even when Guardian is unavailable; the breaker auto-opens after 3 failures, probes back after 60s. The on-demand simulator that exercises this on stage ships with v1.1.
 
