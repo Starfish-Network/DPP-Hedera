@@ -1,1 +1,6 @@
 .claude/
+
+# Local environment files — never commit. Use api/.env.example (committable) for templates.
+**/.env
+**/.env.*
+!**/.env.example

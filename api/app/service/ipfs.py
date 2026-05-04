@@ -13,7 +13,8 @@ def upload_to_ipfs(data: bytes, filename: str = "file.bin") -> str:
     resp = requests.post(
         "https://api.pinata.cloud/pinning/pinFileToIPFS",
         files=files,
-        headers=headers
+        headers=headers,
+        timeout=30,
     )
     resp.raise_for_status()
     json_resp = resp.json()
@@ -23,6 +24,6 @@ def upload_to_ipfs(data: bytes, filename: str = "file.bin") -> str:
     return cid
 
 def download_from_ipfs(cid: str) -> bytes:
-    resp = requests.get(f"https://ipfs.io/ipfs/{cid}")
+    resp = requests.get(f"https://ipfs.io/ipfs/{cid}", timeout=30)
     resp.raise_for_status()
     return resp.content
