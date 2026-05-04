@@ -563,6 +563,28 @@ class GuardianClient:
             )
         return results
 
+    async def get_policy_vc(self, policy_id: str) -> dict[str, Any] | None:
+        """Fetch the policy's own self-describing VC (the `type: POLICY` doc
+        published when the policy was registered on Hedera). MGS exposes this
+        via /search-documents — the regular /documents?type=VC filter excludes
+        it. Returns None if the search returns no POLICY-type entry.
+        """
+        if self._jwt is None:
+            await self.login()
+        r = await self._call_with_refresh(
+            "GET",
+            f"/policies/{policy_id}/search-documents",
+            params={"pageSize": 100},
+        )
+        err = self._classify(r)
+        if err is not None:
+            raise err
+        items = self._unwrap_list_body(r.json()) if r.text else []
+        for d in items:
+            if d.get("type") == "POLICY":
+                return d
+        return None
+
     @staticmethod
     def _credential_subject(vc: VCDocument) -> dict[str, Any]:
         cs = vc.get("credentialSubject") or {}
@@ -697,6 +719,36 @@ class GuardianClient:
                 f"missing taskId in /schemas/push/{schema_id}/publish response"
             )
         return TaskHandle(taskId=task_id)
+
+    async def publish_schema_with_bump(
+        self,
+        schema_id: str,
+        *,
+        base_version: str,
+        timeout_s: float,
+        max_attempts: int = 20,
+    ) -> str:
+        """Publish a DRAFT schema, walking the patch number up if MGS rejects
+        with "Version already exists" — happens when a discontinued policy in
+        the SR namespace already published this `<name>@<version>` tuple.
+
+        Returns the version that finally succeeded. Raises RuntimeError on
+        non-conflict failure or on hitting `max_attempts` consecutive
+        conflicts.
+        """
+        version = base_version
+        for _ in range(max_attempts):
+            task = await self.publish_schema(schema_id, version=version)
+            result = await self.wait_for_task(task.taskId, timeout=timeout_s)
+            if result.status == "COMPLETED":
+                return version
+            if "already exists" not in (result.error or "").lower():
+                raise RuntimeError(f"Schema publish failed: {result.error}")
+            major, minor, patch = (version.split(".") + ["0", "0"])[:3]
+            version = f"{major}.{minor}.{int(patch) + 1}"
+        raise RuntimeError(
+            f"Schema publish hit {max_attempts} consecutive 'Version already exists' errors"
+        )
 
     async def create_policy(self, policy: dict[str, Any]) -> list[dict[str, Any]]:
         """

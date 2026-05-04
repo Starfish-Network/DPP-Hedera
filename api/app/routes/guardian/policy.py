@@ -28,6 +28,38 @@ router = APIRouter()
 
 
 @router.get(
+    "/{policy_slug}/policy-vc",
+    summary="Retrieve the policy's own self-describing VC (POLICY-type document)",
+)
+async def get_policy_vc(
+    policy_slug: str,
+    client: GuardianClient = Depends(get_guardian_client),
+) -> Any:
+    policy = get_policy(policy_slug)
+    if policy is None:
+        raise HTTPException(status_code=404, detail=f"unknown policy: {policy_slug}")
+    if not policy.enabled:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Guardian {policy_slug.upper()} policy is not configured",
+        )
+    try:
+        vc = await client.get_policy_vc(policy.policy_id)
+        if vc is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"no POLICY-type document for {policy_slug}",
+            )
+        return vc
+    except GuardianToSRequired:
+        raise HTTPException(status_code=503, detail="tos_required")
+    except (GuardianUnavailable, GuardianAuthError):
+        raise HTTPException(status_code=503, detail="guardian_unavailable")
+    except GuardianClientError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get(
     "/{policy_slug}/vc/{event_hash}",
     summary="Retrieve the compliance VC for an event hash",
 )

@@ -1,18 +1,21 @@
 import { useState } from "react";
-import { RetrieveVc } from "../pages/RetrieveVc";
+import { PolicyVcs } from "../pages/PolicyVcs";
 import { SubmitFsma } from "../pages/SubmitFsma";
 import { SubmitGdst } from "../pages/SubmitGdst";
 
-type DemoTab = "submit_gdst" | "submit_fsma" | "retrieve";
+// "retrieve" tab is hidden pending event-VC issuance fix in MGS — re-add it
+// (and its import + render branch) once the policy chain emits VCs. The
+// `pages/RetrieveVc.tsx` file is intentionally left in place.
+type DemoTab = "policies" | "submit_gdst" | "submit_fsma";
 
 const TABS: Array<{ id: DemoTab; label: string }> = [
+    { id: "policies", label: "Policy VCs" },
     { id: "submit_gdst", label: "Submit GDST" },
     { id: "submit_fsma", label: "Submit FSMA" },
-    { id: "retrieve", label: "Retrieve VC" },
 ];
 
 export function GuardianDemo() {
-    const [tab, setTab] = useState<DemoTab>("submit_gdst");
+    const [tab, setTab] = useState<DemoTab>("policies");
 
     return (
         <div className="grid grid-cols-[12rem_1fr] gap-6">
@@ -32,9 +35,9 @@ export function GuardianDemo() {
                 ))}
             </aside>
             <section className="bg-white border rounded-lg shadow p-6 min-h-[400px]">
+                {tab === "policies" && <PolicyVcs />}
                 {tab === "submit_gdst" && <SubmitGdst />}
                 {tab === "submit_fsma" && <SubmitFsma />}
-                {tab === "retrieve" && <RetrieveVc />}
             </section>
         </div>
     );

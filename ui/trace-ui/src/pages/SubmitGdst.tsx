@@ -1,11 +1,14 @@
 import { useMemo, useState } from "react";
 import { ErrorPanel, SubmitResultPanel } from "../components/SubmitFlow";
 import { SamplePicker } from "../components/SamplePicker";
-import { usePollForVc } from "../hooks/usePollForVc";
 import { ApiError, submitGdstEvent } from "../lib/api";
 import { gdstSamples } from "../lib/samples";
 import type { SubmitResponse } from "../types/SubmitResponse";
 
+// VC polling is currently disabled — MGS isn't issuing event VCs (see the
+// open MGS support ticket). Submit pages render the HCS receipt + Guardian
+// forwarding status only. Re-enable by re-introducing usePollForVc + passing
+// `pollState`/`shouldPoll` into <SubmitResultPanel> once VCs flow.
 export function SubmitGdst() {
     const sampleKeys = useMemo(
         () => Object.keys(gdstSamples).sort((a, b) => a.localeCompare(b)),
@@ -15,18 +18,6 @@ export function SubmitGdst() {
     const [submitting, setSubmitting] = useState(false);
     const [result, setResult] = useState<SubmitResponse | null>(null);
     const [error, setError] = useState<ApiError | Error | null>(null);
-
-    // Only poll when Guardian actually accepted the document. Non-compliant
-    // events get HCS-recorded but Guardian skips them — no VC will ever appear.
-    const shouldPoll =
-        result !== null &&
-        result.isCompliant &&
-        result.guardian.status === "submitted";
-
-    const pollState = usePollForVc(
-        shouldPoll ? "gdst" : null,
-        shouldPoll ? result.eventHash : null,
-    );
 
     async function onSubmit() {
         const sample = selectedKey ? gdstSamples[selectedKey] : null;
@@ -51,8 +42,8 @@ export function SubmitGdst() {
                 <p className="text-sm text-gray-600 mt-1">
                     Pick one of the {sampleKeys.length} canonical GDST CTE samples from{" "}
                     <code>samples/gdst/</code> and submit it via{" "}
-                    <code>POST /api/v1/gdst/events</code>. Watch the response stages:
-                    Pydantic validation → HCS receipt → Guardian forwarding → issued VC.
+                    <code>POST /api/v1/gdst/events</code>. The UI surfaces the HCS
+                    receipt and Guardian forwarding status.
                 </p>
             </header>
 
@@ -73,14 +64,7 @@ export function SubmitGdst() {
             </div>
 
             {error && <ErrorPanel error={error} />}
-            {result && (
-                <SubmitResultPanel
-                    result={result}
-                    pollState={pollState}
-                    shouldPoll={shouldPoll}
-                    slug="gdst"
-                />
-            )}
+            {result && <SubmitResultPanel result={result} slug="gdst" />}
         </div>
     );
 }

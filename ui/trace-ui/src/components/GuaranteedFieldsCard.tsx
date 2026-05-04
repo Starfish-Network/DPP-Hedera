@@ -1,16 +1,11 @@
 import { Fragment } from "react";
+import { getSubject } from "../lib/vc";
 import type { PolicySlug } from "../types/PolicySlug";
 import type { VerifiableCredential } from "../types/VerifiableCredential";
 
 interface Props {
     vc: VerifiableCredential;
     slug: PolicySlug;
-}
-
-function getSubject(vc: VerifiableCredential): Record<string, unknown> {
-    const cs = vc.credentialSubject;
-    if (Array.isArray(cs)) return cs[0] ?? {};
-    return cs;
 }
 
 function formatScalar(v: unknown): string {

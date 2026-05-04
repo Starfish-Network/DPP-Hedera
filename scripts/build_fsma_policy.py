@@ -135,12 +135,13 @@ def _full_config(intake_schema_ref: str) -> dict[str, Any]:
     value in a signed W3C VC envelope using the SR DID — there is no
     `createVcDocumentBlock` in MGS's block taxonomy.
     """
-    passthrough_script = (
+    # See build_gdst_policy.py for the unwrap rationale (GDST v5 post-mortem).
+    unwrap_script = (
         "function processDocuments(documents) {\n"
-        "    return documents[0];\n"
+        "    const cs = documents[0].document.credentialSubject;\n"
+        "    return Array.isArray(cs) ? cs[0] : cs;\n"
         "}\n"
-        "const result = processDocuments(documents);\n"
-        "done(result);\n"
+        "done(processDocuments(documents));\n"
     )
     return {
         "id": _new_id(),
@@ -185,7 +186,7 @@ def _full_config(intake_schema_ref: str) -> dict[str, Any]:
                 "defaultActive": True,
                 "onErrorAction": "no-action",
                 "uiMetaData": {},
-                "expression": passthrough_script,
+                "expression": unwrap_script,
                 "selectedScriptLanguage": "JAVASCRIPT",
                 "unsigned": False,
                 "passOriginal": False,
@@ -309,21 +310,18 @@ async def bootstrap(client: GuardianClient, *, dry_run: bool = False) -> dict[st
     schema_uuid = created_schema["iri"]
     print(f"   schemaId={schema_id}, iri={schema_uuid}")
 
-    # MGS may auto-bump the version when an earlier `FSMA204ComplianceIntake@…`
-    # is on-chain in the SR namespace. The IRI on the created record reflects
-    # the actual version MGS assigned.
-    publish_version = (schema_uuid.rsplit("&", 1)[-1] if "&" in schema_uuid else POLICY_VERSION)
+    # See build_gdst_policy.py for the SR-namespace version-collision rationale.
+    base_version = schema_uuid.rsplit("&", 1)[-1] if "&" in schema_uuid else POLICY_VERSION
+    print(f"4. Publish schema starting at version {base_version} (async, up to {int(PUBLISH_TIMEOUT_S / 60)} min)...")
+    await client.publish_schema_with_bump(
+        schema_id, base_version=base_version, timeout_s=PUBLISH_TIMEOUT_S,
+    )
+    in_topic = await client.list_schemas(topic_id)
+    pub = [s for s in in_topic if s.get("name") == "FSMA204ComplianceIntake" and s.get("status") == "PUBLISHED"]
+    final_iri = pub[-1]["iri"] if pub else schema_uuid
+    print(f"   published as {final_iri}")
 
-    print(f"4. Publish schema (async, up to {int(PUBLISH_TIMEOUT_S / 60)} min)...")
-    task = await client.publish_schema(schema_id, version=publish_version)
-    result = await client.wait_for_task(task.taskId, timeout=PUBLISH_TIMEOUT_S)
-    if result.status != "COMPLETED":
-        raise RuntimeError(
-            f"Schema publish failed: {result.error}. "
-            f"If the task is still running server-side, re-run with --resume."
-        )
-
-    return await _finalize(client, policy_id, schema_uuid)
+    return await _finalize(client, policy_id, final_iri)
 
 
 async def resume(client: GuardianClient) -> dict[str, str]:
@@ -353,20 +351,30 @@ async def resume(client: GuardianClient) -> dict[str, str]:
     topic_id = policy.get("topicId") or policy.get("instanceTopicId")
     print(f"   policyId={policy_id}, topicId={topic_id}")
 
-    print("3. Find published intake schema under topic...")
+    print("3. Find intake schema under topic...")
     schemas = await client.list_schemas(topic_id)
-    intakes = [
-        s for s in schemas
-        if s.get("name") == "FSMA204ComplianceIntake" and s.get("status") == "PUBLISHED"
-    ]
-    if not intakes:
-        seen = [(s.get("name"), s.get("status")) for s in schemas]
-        raise RuntimeError(
-            f"no PUBLISHED FSMA204ComplianceIntake in topic {topic_id}; seen={seen}. "
-            "Schema may still be publishing; wait and retry."
+    pub = [s for s in schemas if s.get("name") == "FSMA204ComplianceIntake" and s.get("status") == "PUBLISHED"]
+    drafts = [s for s in schemas if s.get("name") == "FSMA204ComplianceIntake" and s.get("status") == "DRAFT"]
+    if pub:
+        intake_iri = pub[-1].get("iri")
+        print(f"   already PUBLISHED: {intake_iri}")
+    elif drafts:
+        draft = drafts[-1]
+        schema_id = draft["id"]
+        base_version = (draft.get("iri", "").rsplit("&", 1)[-1] if "&" in draft.get("iri", "") else POLICY_VERSION)
+        print(f"   publish DRAFT schema starting at version {base_version} (async)...")
+        await client.publish_schema_with_bump(
+            schema_id, base_version=base_version, timeout_s=PUBLISH_TIMEOUT_S,
         )
-    intake_iri = intakes[-1].get("iri")
-    print(f"   intake_iri={intake_iri}")
+        in_topic = await client.list_schemas(topic_id)
+        pub = [s for s in in_topic if s.get("name") == "FSMA204ComplianceIntake" and s.get("status") == "PUBLISHED"]
+        if not pub:
+            raise RuntimeError("publish reported COMPLETED but no PUBLISHED schema in topic")
+        intake_iri = pub[-1]["iri"]
+        print(f"   published as {intake_iri}")
+    else:
+        seen = [(s.get("name"), s.get("status")) for s in schemas]
+        raise RuntimeError(f"no FSMA204ComplianceIntake in topic {topic_id}; seen={seen}.")
 
     return await _finalize(client, policy_id, intake_iri)
 

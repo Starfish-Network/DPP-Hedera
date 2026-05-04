@@ -59,7 +59,7 @@ POLICY_DESCRIPTION = (
     "Cross-party ruleset compliance for GDST 1.2 critical tracking events. "
     "Issues GDSTComplianceCredential VCs for events submitted via FastAPI."
 )
-POLICY_TAG = "GDST-1-2-seafood-v5"
+POLICY_TAG = "GDST-1-2-seafood-v6"
 POLICY_VERSION = "1.0.0"
 INTAKE_BLOCK_TAG = "gdst_intake"
 CREATE_VC_BLOCK_TAG = "gdst_create_vc"
@@ -158,13 +158,22 @@ def _full_config(intake_schema_ref: str) -> dict[str, Any]:
     if the option is missing the worker thread silently dies and no VC is ever
     produced (see GDST v3/v4 post-mortems). Pointing it at the same intake
     schema makes the issued VC reuse the GDSTComplianceIntake type.
+
+    The script must unwrap to the credentialSubject. customLogicBlock receives
+    `documents` as an array of IPolicyDocument wrappers (`{document, owner,
+    schema, accounts, signature, ...}`); returning the wrapper makes the
+    downstream `verifySubject` fail because its createDocument path spreads
+    the wrapper into vcSubject and the schema's required fields end up nested
+    one level too deep (see GDST v5 post-mortem). Returning
+    `documents[0].document.credentialSubject[0]` hands createDocument exactly
+    the GDSTComplianceIntake fields it expects.
     """
-    passthrough_script = (
+    unwrap_script = (
         "function processDocuments(documents) {\n"
-        "    return documents[0];\n"
+        "    const cs = documents[0].document.credentialSubject;\n"
+        "    return Array.isArray(cs) ? cs[0] : cs;\n"
         "}\n"
-        "const result = processDocuments(documents);\n"
-        "done(result);\n"
+        "done(processDocuments(documents));\n"
     )
     return {
         "id": _new_id(),
@@ -209,7 +218,7 @@ def _full_config(intake_schema_ref: str) -> dict[str, Any]:
                 "defaultActive": True,
                 "onErrorAction": "no-action",
                 "uiMetaData": {},
-                "expression": passthrough_script,
+                "expression": unwrap_script,
                 "selectedScriptLanguage": "JAVASCRIPT",
                 "unsigned": False,  # signs the output as a VC with the SR DID
                 "passOriginal": False,
@@ -335,43 +344,18 @@ async def bootstrap(client: GuardianClient, *, dry_run: bool = False) -> dict[st
     print(f"   schemaId={schema_id}, iri={schema_uuid}")
 
     # MGS auto-bumps the IRI version when an earlier GDSTComplianceIntake is
-    # already on-chain in the SR namespace, but its bump only inspects the
-    # tenant's topic — not the global SR namespace. So it can hand back an iri
-    # like `&1.0.1` while 1.0.1 is already PUBLISHED elsewhere in the SR's
-    # namespace, and `publish_schema(version=1.0.1)` then dies with "Version
-    # already exists". Walk the patch number up until MGS accepts.
-    publish_version = (
-        schema_uuid.rsplit("&", 1)[-1] if "&" in schema_uuid else POLICY_VERSION
+    # already on-chain in the SR namespace, but the bump only inspects the
+    # tenant's topic — not the global SR namespace — so the iri may collide
+    # with another tenant's `<name>@<version>`. publish_schema_with_bump walks
+    # the patch number up until MGS accepts.
+    base_version = schema_uuid.rsplit("&", 1)[-1] if "&" in schema_uuid else POLICY_VERSION
+    print(f"4. Publish schema starting at version {base_version} (async, up to {int(PUBLISH_TIMEOUT_S / 60)} min)...")
+    await client.publish_schema_with_bump(
+        schema_id, base_version=base_version, timeout_s=PUBLISH_TIMEOUT_S,
     )
-    final_iri = schema_uuid
-    for _ in range(20):
-        print(f"4. Publish schema as version {publish_version} (async, up to {int(PUBLISH_TIMEOUT_S / 60)} min)...")
-        task = await client.publish_schema(schema_id, version=publish_version)
-        result = await client.wait_for_task(task.taskId, timeout=PUBLISH_TIMEOUT_S)
-        if result.status == "COMPLETED":
-            break
-        err = (result.error or "").lower()
-        if "already exists" not in err:
-            raise RuntimeError(
-                f"Schema publish failed: {result.error}. "
-                f"If the task is still running server-side, re-run with --resume."
-            )
-        # Bump patch and retry. Stays within semver-major-minor-patch.
-        major, minor, patch = (publish_version.split(".") + ["0", "0"])[:3]
-        publish_version = f"{major}.{minor}.{int(patch) + 1}"
-        print(f"   version conflict in SR namespace; bumping to {publish_version}")
-    else:
-        raise RuntimeError(
-            "Schema publish hit 20 consecutive 'Version already exists' errors — "
-            "either the SR namespace is heavily polluted or the publish flow "
-            "is broken; investigate via the MGS portal."
-        )
-
-    # Refresh the IRI from MGS (it now reflects the actually-published version).
     in_topic = await client.list_schemas(topic_id)
     pub = [s for s in in_topic if s.get("name") == "GDSTComplianceIntake" and s.get("status") == "PUBLISHED"]
-    if pub:
-        final_iri = pub[-1]["iri"]
+    final_iri = pub[-1]["iri"] if pub else schema_uuid
     print(f"   published as {final_iri}")
 
     return await _finalize(client, policy_id, final_iri)
@@ -422,24 +406,14 @@ async def resume(client: GuardianClient) -> dict[str, str]:
         intake_iri = pub[-1].get("iri")
         print(f"   already PUBLISHED: {intake_iri}")
     elif drafts:
-        # The previous bootstrap died inside step 4 (publish). Pick up there
-        # and walk patch versions until SR namespace accepts.
+        # The previous bootstrap died inside step 4 (publish). Pick up there.
         draft = drafts[-1]
         schema_id = draft["id"]
-        publish_version = (draft.get("iri", "").rsplit("&", 1)[-1] if "&" in draft.get("iri", "") else POLICY_VERSION)
-        for _ in range(20):
-            print(f"   publish DRAFT schema as version {publish_version} (async, up to {int(PUBLISH_TIMEOUT_S / 60)} min)...")
-            task = await client.publish_schema(schema_id, version=publish_version)
-            result = await client.wait_for_task(task.taskId, timeout=PUBLISH_TIMEOUT_S)
-            if result.status == "COMPLETED":
-                break
-            if "already exists" not in (result.error or "").lower():
-                raise RuntimeError(f"Schema publish failed: {result.error}")
-            major, minor, patch = (publish_version.split(".") + ["0", "0"])[:3]
-            publish_version = f"{major}.{minor}.{int(patch) + 1}"
-            print(f"   version conflict in SR namespace; bumping to {publish_version}")
-        else:
-            raise RuntimeError("Schema publish hit 20 consecutive version conflicts.")
+        base_version = (draft.get("iri", "").rsplit("&", 1)[-1] if "&" in draft.get("iri", "") else POLICY_VERSION)
+        print(f"   publish DRAFT schema starting at version {base_version} (async)...")
+        await client.publish_schema_with_bump(
+            schema_id, base_version=base_version, timeout_s=PUBLISH_TIMEOUT_S,
+        )
         in_topic = await client.list_schemas(topic_id)
         pub = [s for s in in_topic if s.get("name") == "GDSTComplianceIntake" and s.get("status") == "PUBLISHED"]
         if not pub:

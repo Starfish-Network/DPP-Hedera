@@ -1,12 +1,11 @@
 import { useMemo, useState } from "react";
 import { ErrorPanel, SubmitResultPanel } from "../components/SubmitFlow";
 import { SamplePicker } from "../components/SamplePicker";
-import { usePollForVc } from "../hooks/usePollForVc";
 import { ApiError, submitFsmaEvent } from "../lib/api";
 import { fsmaSamples } from "../lib/samples";
-import type { StarfishEvent } from "../types/StarfishEvents";
 import type { SubmitResponse } from "../types/SubmitResponse";
 
+// See SubmitGdst — VC polling is currently disabled pending MGS issuance fix.
 export function SubmitFsma() {
     const sampleKeys = useMemo(
         () => Object.keys(fsmaSamples).sort((a, b) => a.localeCompare(b)),
@@ -17,16 +16,6 @@ export function SubmitFsma() {
     const [result, setResult] = useState<SubmitResponse | null>(null);
     const [error, setError] = useState<ApiError | Error | null>(null);
 
-    const shouldPoll =
-        result !== null &&
-        result.isCompliant &&
-        result.guardian.status === "submitted";
-
-    const pollState = usePollForVc(
-        shouldPoll ? "fsma" : null,
-        shouldPoll ? result.eventHash : null,
-    );
-
     async function onSubmit() {
         const sample = selectedKey ? fsmaSamples[selectedKey] : null;
         if (!sample) return;
@@ -34,7 +23,7 @@ export function SubmitFsma() {
         setResult(null);
         setError(null);
         try {
-            const r = await submitFsmaEvent(sample as StarfishEvent);
+            const r = await submitFsmaEvent(sample);
             setResult(r);
         } catch (e) {
             setError(e instanceof Error ? e : new Error(String(e)));
@@ -50,9 +39,8 @@ export function SubmitFsma() {
                 <p className="text-sm text-gray-600 mt-1">
                     Pick one of the {sampleKeys.length} canonical FSMA 204 event samples
                     from <code>samples/fsma/</code> and submit it via{" "}
-                    <code>POST /api/v1/epcis/compliance/check</code>. Watch the response
-                    stages: Pydantic validation → HCS receipt → Guardian forwarding →
-                    issued VC.
+                    <code>POST /api/v1/epcis/compliance/check</code>. The UI surfaces
+                    the HCS receipt and Guardian forwarding status.
                 </p>
             </header>
 
@@ -73,14 +61,7 @@ export function SubmitFsma() {
             </div>
 
             {error && <ErrorPanel error={error} />}
-            {result && (
-                <SubmitResultPanel
-                    result={result}
-                    pollState={pollState}
-                    shouldPoll={shouldPoll}
-                    slug="fsma"
-                />
-            )}
+            {result && <SubmitResultPanel result={result} slug="fsma" />}
         </div>
     );
 }
