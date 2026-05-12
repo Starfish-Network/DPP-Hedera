@@ -5,6 +5,7 @@ import type { VerifiableCredential } from "../types/VerifiableCredential";
 import { usePoll } from "./usePoll";
 
 export type PollState =
+    | { status: "idle" }
     | { status: "polling"; elapsedMs: number }
     | { status: "ready"; vc: VerifiableCredential; elapsedMs: number }
     | { status: "manual_review"; elapsedMs: number };
@@ -21,14 +22,16 @@ export function usePollForVc(
 ): PollState {
     const intervalMs = opts.intervalMs ?? 5000;
     const timeoutMs = opts.timeoutMs ?? 300_000;
-    const [state, setState] = useState<PollState>({ status: "polling", elapsedMs: 0 });
+    const active = slug !== null && eventHash !== null;
+    const [state, setState] = useState<PollState>(
+        active ? { status: "polling", elapsedMs: 0 } : { status: "idle" },
+    );
 
-    // Reset on resubmit: a previous run that reached terminal state (`ready`
-    // or `manual_review`) would otherwise flash through to the new submission
-    // until the next tick lands.
+    // Reset on resubmit (or going inactive): a previous run that reached
+    // a terminal state would otherwise persist past the new submission.
     useEffect(() => {
-        setState({ status: "polling", elapsedMs: 0 });
-    }, [slug, eventHash]);
+        setState(active ? { status: "polling", elapsedMs: 0 } : { status: "idle" });
+    }, [slug, eventHash, active]);
 
     usePoll(
         async (cancelled, startTime) => {
@@ -54,6 +57,7 @@ export function usePollForVc(
         },
         intervalMs,
         [slug, eventHash, timeoutMs],
+        !active || state.status !== "polling",
     );
 
     return state;

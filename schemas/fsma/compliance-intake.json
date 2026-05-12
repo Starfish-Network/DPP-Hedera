@@ -52,6 +52,24 @@
         "title": "Original event payload",
         "description": "Full verbatim FSMA 204 event payload preserved per FR-015.",
         "type": "object"
+      },
+      "policyId": {
+        "title": "Policy id",
+        "description": "Runtime-injected by Guardian's requestVcDocumentBlock; declared so MGS's auto-injected `additionalProperties: false` doesn't reject the decorated subject.",
+        "type": "string",
+        "readOnly": true
+      },
+      "guardianVersion": {
+        "title": "Guardian version",
+        "description": "Runtime-injected by Guardian's requestVcDocumentBlock.",
+        "type": "string",
+        "readOnly": true
+      },
+      "ref": {
+        "title": "Ref",
+        "description": "Runtime-injected by Guardian (parent VC reference; null for root submissions).",
+        "type": "string",
+        "readOnly": true
       }
     },
     "required": [

@@ -205,16 +205,16 @@ def _load_sample(name: str) -> dict:
 def test_gdst_idempotent_submission(mgs_mock: respx.MockRouter):
     """
     FR-004: resubmitting the same event returns the same eventHash and makes
-    exactly one MGS POST to /external/<policy>/<block>.
+    exactly one MGS POST to /policies/<policy>/tag/<block>/blocks/sync-events.
     """
     sample = _load_sample("fishing")
     subject = to_credential_subject(sample, GDST)
     policy_id = "policy-xyz"
     block_tag = "intake"
 
-    submit_route = mgs_mock.post(f"/external/{policy_id}/{block_tag}").mock(
-        return_value=httpx.Response(202, json={"status": "accepted"})
-    )
+    submit_route = mgs_mock.post(
+        f"/policies/{policy_id}/tag/{block_tag}/blocks/sync-events"
+    ).mock(return_value=httpx.Response(200, json={"response": {"document": {}}}))
 
     async def scenario() -> tuple[SubmitAck, SubmitAck, int]:
         client = _make_client()

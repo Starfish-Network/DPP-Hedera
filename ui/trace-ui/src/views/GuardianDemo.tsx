@@ -1,17 +1,16 @@
 import { useState } from "react";
+import { DryrunSubmit } from "../pages/DryrunSubmit";
 import { PolicyVcs } from "../pages/PolicyVcs";
 import { SubmitFsma } from "../pages/SubmitFsma";
 import { SubmitGdst } from "../pages/SubmitGdst";
 
-// "retrieve" tab is hidden pending event-VC issuance fix in MGS — re-add it
-// (and its import + render branch) once the policy chain emits VCs. The
-// `pages/RetrieveVc.tsx` file is intentionally left in place.
-type DemoTab = "policies" | "submit_gdst" | "submit_fsma";
+type DemoTab = "policies" | "submit_gdst" | "submit_fsma" | "dryrun";
 
 const TABS: Array<{ id: DemoTab; label: string }> = [
     { id: "policies", label: "Policy VCs" },
     { id: "submit_gdst", label: "Submit GDST" },
     { id: "submit_fsma", label: "Submit FSMA" },
+    { id: "dryrun", label: "Issue VC (dry-run)" },
 ];
 
 export function GuardianDemo() {
@@ -38,6 +37,7 @@ export function GuardianDemo() {
                 {tab === "policies" && <PolicyVcs />}
                 {tab === "submit_gdst" && <SubmitGdst />}
                 {tab === "submit_fsma" && <SubmitFsma />}
+                {tab === "dryrun" && <DryrunSubmit />}
             </section>
         </div>
     );

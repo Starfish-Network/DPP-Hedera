@@ -1,11 +1,11 @@
 import { useMemo, useState } from "react";
 import { ErrorPanel, SubmitResultPanel } from "../components/SubmitFlow";
 import { SamplePicker } from "../components/SamplePicker";
+import { usePollForVc } from "../hooks/usePollForVc";
 import { ApiError, submitFsmaEvent } from "../lib/api";
 import { fsmaSamples } from "../lib/samples";
 import type { SubmitResponse } from "../types/SubmitResponse";
 
-// See SubmitGdst — VC polling is currently disabled pending MGS issuance fix.
 export function SubmitFsma() {
     const sampleKeys = useMemo(
         () => Object.keys(fsmaSamples).sort((a, b) => a.localeCompare(b)),
@@ -15,6 +15,12 @@ export function SubmitFsma() {
     const [submitting, setSubmitting] = useState(false);
     const [result, setResult] = useState<SubmitResponse | null>(null);
     const [error, setError] = useState<ApiError | Error | null>(null);
+
+    const eventHashToPoll =
+        result?.guardian.status === "submitted" && result.isCompliant
+            ? result.eventHash
+            : null;
+    const pollState = usePollForVc(eventHashToPoll ? "fsma" : null, eventHashToPoll);
 
     async function onSubmit() {
         const sample = selectedKey ? fsmaSamples[selectedKey] : null;
@@ -61,7 +67,9 @@ export function SubmitFsma() {
             </div>
 
             {error && <ErrorPanel error={error} />}
-            {result && <SubmitResultPanel result={result} slug="fsma" />}
+            {result && (
+                <SubmitResultPanel result={result} pollState={pollState} slug="fsma" />
+            )}
         </div>
     );
 }

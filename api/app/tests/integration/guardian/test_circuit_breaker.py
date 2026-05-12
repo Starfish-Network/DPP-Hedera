@@ -53,7 +53,7 @@ def _run(coro):
 def test_breaker_opens_after_three_counting_failures(mgs_mock, frozen_clock):
     breaker = CircuitBreaker(fail_threshold=3, open_duration_s=60.0, clock=frozen_clock)
     client = _make_client(breaker, frozen_clock)
-    submit_route = mgs_mock.post("/external/POL/INTAKE").mock(
+    submit_route = mgs_mock.post("/policies/POL/tag/INTAKE/blocks/sync-events").mock(
         return_value=httpx.Response(503, json={"code": "ServiceUnavailable"})
     )
 
@@ -82,7 +82,7 @@ def test_breaker_does_not_count_451(mgs_mock, frozen_clock):
     """
     breaker = CircuitBreaker(fail_threshold=3, open_duration_s=60.0, clock=frozen_clock)
     client = _make_client(breaker, frozen_clock)
-    mgs_mock.post("/external/POL/INTAKE").mock(
+    mgs_mock.post("/policies/POL/tag/INTAKE/blocks/sync-events").mock(
         return_value=httpx.Response(451, json={"code": "ToSRequired"})
     )
 
@@ -105,7 +105,7 @@ def test_breaker_does_not_count_451(mgs_mock, frozen_clock):
 def test_breaker_does_not_count_400_or_409(mgs_mock, frozen_clock):
     breaker = CircuitBreaker(fail_threshold=3, open_duration_s=60.0, clock=frozen_clock)
     client = _make_client(breaker, frozen_clock)
-    mgs_mock.post("/external/POL/INTAKE").mock(
+    mgs_mock.post("/policies/POL/tag/INTAKE/blocks/sync-events").mock(
         side_effect=[
             httpx.Response(400, json={"code": "BadRequest"}),
             httpx.Response(409, json={"code": "Conflict"}),
@@ -127,7 +127,7 @@ def test_breaker_does_not_count_400_or_409(mgs_mock, frozen_clock):
 def test_breaker_half_open_probe_success_closes(mgs_mock, frozen_clock):
     breaker = CircuitBreaker(fail_threshold=3, open_duration_s=60.0, clock=frozen_clock)
     client = _make_client(breaker, frozen_clock)
-    mgs_mock.post("/external/POL/INTAKE").mock(
+    mgs_mock.post("/policies/POL/tag/INTAKE/blocks/sync-events").mock(
         side_effect=[
             httpx.Response(503),
             httpx.Response(503),
@@ -157,7 +157,7 @@ def test_breaker_half_open_probe_failure_resets_window(mgs_mock, frozen_clock):
     """ONE failure re-opens the window — not another three."""
     breaker = CircuitBreaker(fail_threshold=3, open_duration_s=60.0, clock=frozen_clock)
     client = _make_client(breaker, frozen_clock)
-    mgs_mock.post("/external/POL/INTAKE").mock(
+    mgs_mock.post("/policies/POL/tag/INTAKE/blocks/sync-events").mock(
         return_value=httpx.Response(503)
     )
 
@@ -191,7 +191,7 @@ def test_submit_document_raises_when_breaker_open(mgs_mock, frozen_clock):
     assert breaker.state == "open"
 
     client = _make_client(breaker, frozen_clock)
-    submit_route = mgs_mock.post("/external/POL/INTAKE").mock(
+    submit_route = mgs_mock.post("/policies/POL/tag/INTAKE/blocks/sync-events").mock(
         return_value=httpx.Response(200, json={"accepted": True})
     )
 
@@ -223,7 +223,7 @@ def test_hcs_flow_unaffected_when_breaker_open(mgs_mock, frozen_clock):
         vc_type_field="testType",
     )
 
-    submit_route = mgs_mock.post("/external/POL/INTAKE").mock(
+    submit_route = mgs_mock.post("/policies/POL/tag/INTAKE/blocks/sync-events").mock(
         return_value=httpx.Response(200, json={"accepted": True})
     )
 

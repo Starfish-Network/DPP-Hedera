@@ -91,6 +91,24 @@ export async function getPolicyVc(slug: PolicySlug): Promise<PolicyVcEnvelope | 
     }
 }
 
+export interface DryrunSubmitResponse {
+    readonly policySlug: PolicySlug;
+    readonly policyId: string;
+    readonly vc: VerifiableCredential | null;
+    readonly vcId: string | null;
+    readonly raw: unknown;
+}
+
+export async function dryrunSubmit(
+    slug: PolicySlug,
+    payload: Record<string, unknown>,
+): Promise<DryrunSubmitResponse> {
+    return request(`/api/v1/guardian/dryrun/submit/${slug}`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+    });
+}
+
 export async function injectBreakerFailure(): Promise<{ active: true }> {
     return request("/api/v1/_demo/breaker/inject", {
         method: "POST",

@@ -7,6 +7,7 @@ specs/001-guardian-integration/contracts/guardian-client.md.
 from __future__ import annotations
 
 import time
+import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -214,6 +215,15 @@ class GuardianClient:
         # Submission-time ledger: event_hash -> submitted_at (monotonic seconds).
         # Drives SC-007 pending/manual_review thresholds.
         self._submission_times: dict[str, float] = {}
+        # Issued-VC cache: event_hash -> signed VC returned by sync-events.
+        # Lets `get_vc_by_event_hash` short-circuit instead of paginating
+        # the full policy corpus for every UI poll tick.
+        self._vc_cache: dict[str, VCDocument] = {}
+        # Per-policy metadata (owner DID) cached for process lifetime.
+        self._policy_meta_cache: dict[str, dict[str, str]] = {}
+        # Dry-run virtual-user cache: policy_id -> minted DID. Persists across
+        # the process; MGS keeps the user as long as the policy is in DRY-RUN.
+        self._dry_run_user_cache: dict[str, str] = {}
 
     def _auth_headers(self) -> dict[str, str]:
         return {"Authorization": f"Bearer {self._jwt}"} if self._jwt else {}
@@ -252,6 +262,10 @@ class GuardianClient:
             return GuardianConflict(r.text)
         if code == 429 or 500 <= code < 600:
             return GuardianUnavailable(f"MGS {code}: {r.text}")
+        # MGS reports a wedged policy worker as `422 "Block Unavailable"`;
+        # treat it as transient unavailability so the breaker counts it.
+        if "Block Unavailable" in r.text:
+            return GuardianUnavailable(f"MGS {code} (worker unavailable): {r.text[:200]}")
         return GuardianClientError(f"MGS {code}: {r.text}")
 
     async def _raw_call(
@@ -459,6 +473,31 @@ class GuardianClient:
         for k in stale:
             self._idempotency_cache.pop(k, None)
 
+    async def _get_policy_owner(self, policy_id: str) -> str:
+        """Owner DID for a policy. Cached for process lifetime. Returns empty
+        string on fetch failure so a flaky /policies call can't block submission."""
+        cached = self._policy_meta_cache.get(policy_id)
+        if cached is not None:
+            return cached["owner"]
+        try:
+            policy = await self.get_policy(policy_id)
+            owner = str(policy.get("owner") or "")
+        except Exception:  # noqa: BLE001 — defensive: a flaky /policies fetch must not block event submission.
+            owner = ""
+        self._policy_meta_cache[policy_id] = {"owner": owner}
+        return owner
+
+    @staticmethod
+    def _wrap_request_document(
+        subject: dict[str, Any],
+        *,
+        owner: str,
+    ) -> dict[str, Any]:
+        """Envelope for `requestVcDocumentBlock` /blocks/sync-events submissions.
+        Send only the credentialSubject — Guardian injects @context/type/id/
+        issuer/issuanceDate/proof server-side."""
+        return {"document": subject, "owner": owner, "ref": None}
+
     async def submit_document(
         self,
         policy_id: str,
@@ -466,7 +505,11 @@ class GuardianClient:
         document: dict[str, Any],
     ) -> SubmitAck:
         """
-        POST /external/{policyId}/{blockTag}. Fire-and-acknowledge (contract §72).
+        POST /policies/{policyId}/tag/{blockTag}/blocks/sync-events?history=true.
+
+        Synchronous: Guardian's `requestVcDocumentBlock` runs the chain in the
+        request thread and returns the issued VC inline. We cache the issued
+        VC's id by event hash so subsequent retrieval calls don't re-fetch.
 
         - Short-circuits on idempotency cache hit (FR-004) — no MGS call.
         - Raises GuardianBreakerOpen immediately if the breaker is open.
@@ -480,7 +523,6 @@ class GuardianClient:
         self._purge_idempotency_cache()
         cached = self._idempotency_cache.get(event_hash)
         if cached is not None:
-            vc, _ = cached
             return SubmitAck(
                 event_hash=event_hash,
                 submitted_at=datetime.now(timezone.utc),
@@ -493,13 +535,36 @@ class GuardianClient:
         if self._jwt is None:
             await self.login()
 
-        path = f"/external/{policy_id}/{block_tag}"
-        r = await self._call_with_refresh("POST", path, json=document)
+        owner = await self._get_policy_owner(policy_id)
+        envelope = self._wrap_request_document(document, owner=owner)
+
+        path = f"/policies/{policy_id}/tag/{block_tag}/blocks/sync-events"
+        r = await self._call_with_refresh(
+            "POST", path, json=envelope, params={"history": "true"}
+        )
         err = self._classify(r)
         if err is not None:
             if isinstance(err, (GuardianUnavailable, GuardianToSRequired)):
                 self._breaker.record_failure(err)
             raise err
+
+        # Sync-events returns `{response: {document: <VC>, ...}, result: {...},
+        # steps: [...], errors?: [...]}`. Surface chain-side errors and cache
+        # the issued VC by event_hash for fast retrieval.
+        try:
+            body = r.json()
+        except Exception:
+            body = None
+        if isinstance(body, dict):
+            errors = body.get("errors")
+            if isinstance(errors, list) and errors:
+                raise GuardianClientError(
+                    f"Guardian sync-events reported errors: {errors[:3]}"
+                )
+            response = body.get("response")
+            issued_vc = response.get("document") if isinstance(response, dict) else None
+            if isinstance(issued_vc, dict):
+                self._vc_cache[event_hash] = issued_vc
 
         self._breaker.record_success()
         now_mono = self._clock()
@@ -510,6 +575,69 @@ class GuardianClient:
             submitted_at=datetime.now(timezone.utc),
             cached=False,
         )
+
+    async def submit_dry_run(
+        self,
+        policy_id: str,
+        block_tag: str,
+        payload: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Submit `payload` to a DRY-RUN policy and return the issued VC.
+
+        Handles minting + login of a virtual user on first use (cached for
+        the process lifetime per policy_id). Unlike `submit_document`, no
+        eventHash, idempotency cache, or breaker bookkeeping — the dry-run
+        sandbox is a debug/demo surface, not a production submission path.
+        """
+        if self._jwt is None:
+            await self.login()
+
+        did = await self._ensure_dry_run_user(policy_id)
+        envelope = {"document": payload, "owner": did, "ref": None}
+        r = await self._call_with_refresh(
+            "POST",
+            f"/policies/{policy_id}/tag/{block_tag}/blocks/sync-events",
+            json=envelope,
+            params={"history": "true"},
+        )
+        err = self._classify(r)
+        if err is not None:
+            raise err
+        body = r.json()
+        return body if isinstance(body, dict) else {}
+
+    async def _ensure_dry_run_user(self, policy_id: str) -> str:
+        cached = self._dry_run_user_cache.get(policy_id)
+        if cached:
+            # Re-bind the JWT to the virtual DID each call — MGS rotates which
+            # principal is active on the JWT, so we can't assume it's still us.
+            await self._call_with_refresh(
+                "POST", f"/policies/{policy_id}/dry-run/login", json={"did": cached},
+            )
+            return cached
+
+        r = await self._call_with_refresh("POST", f"/policies/{policy_id}/dry-run/user")
+        if r.status_code >= 300:
+            raise GuardianClientError(
+                f"could not mint dry-run user: {r.status_code} {r.text[:200]}"
+            )
+        body = r.json()
+        user = body[-1] if isinstance(body, list) and body else body
+        did = (user or {}).get("did")
+        if not did:
+            raise GuardianClientError(
+                f"dry-run user response missing DID: {str(body)[:200]}"
+            )
+
+        login = await self._call_with_refresh(
+            "POST", f"/policies/{policy_id}/dry-run/login", json={"did": did},
+        )
+        if login.status_code >= 300:
+            raise GuardianClientError(
+                f"dry-run login failed: {login.status_code} {login.text[:200]}"
+            )
+        self._dry_run_user_cache[policy_id] = did
+        return did
 
     @staticmethod
     def _unwrap_list_body(body: Any) -> list[dict[str, Any]]:
@@ -545,7 +673,12 @@ class GuardianClient:
             r = await self._call_with_refresh(
                 "GET",
                 f"/policies/{policy_id}/documents",
-                params={"type": "VC", "page": page, "pageSize": page_size},
+                params={
+                    "type": "VC",
+                    "includeDocument": "true",
+                    "page": page,
+                    "pageSize": page_size,
+                },
             )
             err = self._classify(r)
             if err is not None:
@@ -586,8 +719,15 @@ class GuardianClient:
         return None
 
     @staticmethod
-    def _credential_subject(vc: VCDocument) -> dict[str, Any]:
-        cs = vc.get("credentialSubject") or {}
+    def _unwrap_vc(vc: VCDocument) -> VCDocument:
+        """MGS wraps issued VCs as `{_id, document: <signed VC>, owner, ...}`.
+        Some endpoints return the bare VC. Normalize to the inner shape."""
+        inner = vc.get("document")
+        return inner if isinstance(inner, dict) else vc
+
+    @classmethod
+    def _credential_subject(cls, vc: VCDocument) -> dict[str, Any]:
+        cs = cls._unwrap_vc(vc).get("credentialSubject") or {}
         if isinstance(cs, list):
             return cs[0] if cs else {}
         return cs
@@ -609,10 +749,27 @@ class GuardianClient:
         if self._jwt is None:
             await self.login()
 
+        # Cache hit from a recent submit_document — skip the full corpus scan.
+        # history=True still needs the corpus to assemble the chain.
+        if not history:
+            cached_vc = self._vc_cache.get(event_hash.removeprefix("0x").lower())
+            if cached_vc is None:
+                cached_vc = self._vc_cache.get(event_hash)
+            if cached_vc is not None:
+                return cached_vc
+
         all_vcs = await self._list_vcs_for_policy(policy_id)
+        # Normalize both sides — callers vary on the `0x` prefix (the UI's
+        # RetrieveVc strips it before hitting /guardian/{slug}/vc/{hash},
+        # but our mapper always stamps the VC with `0x<64>` in
+        # credentialSubject.eventHash).
+        wanted = event_hash.removeprefix("0x").lower()
         matches = [
-            vc for vc in all_vcs
-            if self._credential_subject(vc).get("eventHash") == event_hash
+            self._unwrap_vc(vc) for vc in all_vcs
+            if (self._credential_subject(vc).get("eventHash") or "")
+            .removeprefix("0x")
+            .lower()
+            == wanted
         ]
 
         def _issued_at(vc: VCDocument) -> str:

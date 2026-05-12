@@ -1,12 +1,10 @@
-// Shared render pieces for the SubmitGdst / SubmitFsma pages.
-// VC polling is currently disabled while MGS issuance is broken — when it
-// comes back, restore PollingPill / ManualReviewPanel + a poll-state branch
-// in SubmitResultPanel from git history (commit before this change).
+import type { PollState } from "../hooks/usePollForVc";
 import { ApiError } from "../lib/api";
 import type { GuardianSubmissionStatus } from "../types/ComplianceCheckResponse";
 import type { PolicySlug } from "../types/PolicySlug";
 import type { SubmitResponse } from "../types/SubmitResponse";
 import { ComplianceBadge } from "./ComplianceBadge";
+import { GuaranteedFieldsCard } from "./GuaranteedFieldsCard";
 
 interface PydanticError {
     type: string;
@@ -56,30 +54,64 @@ export function ErrorPanel({ error }: Readonly<{ error: ApiError | Error }>) {
 
 interface ResultPanelProps {
     readonly result: SubmitResponse;
+    readonly pollState: PollState;
     readonly slug: PolicySlug;
 }
 
-export function SubmitResultPanel({ result, slug }: ResultPanelProps) {
+export function SubmitResultPanel({ result, pollState, slug }: ResultPanelProps) {
     return (
-        <div className="bg-white border rounded-lg p-4 space-y-3">
-            <div className="flex items-center justify-between flex-wrap gap-2">
-                <h3 className="font-semibold">HCS Receipt</h3>
-                <ComplianceBadge
-                    isCompliant={result.isCompliant}
-                    guardian={result.guardian}
-                />
+        <div className="space-y-4">
+            <div className="bg-white border rounded-lg p-4 space-y-3">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                    <h3 className="font-semibold">HCS Receipt</h3>
+                    <ComplianceBadge
+                        isCompliant={result.isCompliant}
+                        guardian={result.guardian}
+                    />
+                </div>
+                <dl className="grid grid-cols-[10rem_1fr] gap-x-4 gap-y-1 text-sm">
+                    <dt className="text-gray-600">Transaction ID</dt>
+                    <dd className="font-mono text-xs">{result.transactionId}</dd>
+                    <dt className="text-gray-600">Receipt Status</dt>
+                    <dd>{result.receiptStatus}</dd>
+                    <dt className="text-gray-600">Event Hash</dt>
+                    <dd className="font-mono text-xs break-all">{result.eventHash}</dd>
+                    <dt className="text-gray-600">Event Type</dt>
+                    <dd>{result.eventType}</dd>
+                </dl>
+                <GuardianStatusInline guardian={result.guardian} slug={slug} />
             </div>
-            <dl className="grid grid-cols-[10rem_1fr] gap-x-4 gap-y-1 text-sm">
-                <dt className="text-gray-600">Transaction ID</dt>
-                <dd className="font-mono text-xs">{result.transactionId}</dd>
-                <dt className="text-gray-600">Receipt Status</dt>
-                <dd>{result.receiptStatus}</dd>
-                <dt className="text-gray-600">Event Hash</dt>
-                <dd className="font-mono text-xs break-all">{result.eventHash}</dd>
-                <dt className="text-gray-600">Event Type</dt>
-                <dd>{result.eventType}</dd>
-            </dl>
-            <GuardianStatusInline guardian={result.guardian} slug={slug} />
+
+            {pollState.status === "polling" && (
+                <PollingPill elapsedMs={pollState.elapsedMs} />
+            )}
+            {pollState.status === "manual_review" && <ManualReviewPanel />}
+            {pollState.status === "ready" && (
+                <GuaranteedFieldsCard vc={pollState.vc} slug={slug} />
+            )}
+        </div>
+    );
+}
+
+function PollingPill({ elapsedMs }: Readonly<{ elapsedMs: number }>) {
+    const seconds = Math.floor(elapsedMs / 1000);
+    return (
+        <div className="border border-blue-300 bg-blue-50 rounded-lg p-3 flex items-center gap-3">
+            <div className="animate-spin h-4 w-4 border-2 border-blue-600 border-t-transparent rounded-full" />
+            <span className="text-sm text-blue-900">Polling for VC… ({seconds}s)</span>
+        </div>
+    );
+}
+
+function ManualReviewPanel() {
+    return (
+        <div className="border border-amber-300 bg-amber-50 rounded-lg p-4">
+            <p className="font-semibold text-amber-900">Manual review required</p>
+            <p className="text-sm text-amber-800 mt-1">
+                The VC didn't arrive within 5 minutes (SC-007 ceiling). Check the
+                health badge in the page header for breaker state, or query{" "}
+                <code>/api/v1/guardian/health</code> directly.
+            </p>
         </div>
     );
 }

@@ -40,6 +40,11 @@ class Settings(BaseSettings):
     GUARDIAN_FSMA_POLICY_ID: str | None = None
     GUARDIAN_GDST_INTAKE_BLOCK_TAG: str | None = None
     GUARDIAN_FSMA_INTAKE_BLOCK_TAG: str | None = None
+    # Dry-run sandbox policy (scripts/bootstrap_dryrun_policy.py creates it).
+    # Used by POST /guardian/dryrun/submit/{slug} to issue real signed VCs in
+    # the dry-run environment when published-policy workers are unavailable.
+    GUARDIAN_DRYRUN_POLICY_ID: str | None = None
+    GUARDIAN_DRYRUN_INTAKE_BLOCK_TAG: str | None = None
     GUARDIAN_VC_PENDING_THRESHOLD_S: int = 30       # SC-007 pending window
     GUARDIAN_VC_MANUAL_REVIEW_CEILING_S: int = 300  # SC-007 manual-review ceiling
     GUARDIAN_BREAKER_FAIL_COUNT: int = 3            # FR-005 / research.md §3

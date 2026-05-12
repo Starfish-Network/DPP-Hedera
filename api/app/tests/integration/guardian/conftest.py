@@ -41,6 +41,13 @@ def mgs_mock() -> Iterator[respx.MockRouter]:
                 200, json={"did": "did:hedera:testnet:abc_0.0.42", "role": "STANDARD_REGISTRY"}
             )
         )
+        # Note: `submit_document` calls GET /policies/<id> once per policyId
+        # to resolve the policy `owner` DID for the request envelope. We
+        # deliberately don't mock that here — tests that care about owner
+        # register their own /policies/<id> mock; tests that only assert on
+        # call_count tolerate the silent fallback in
+        # `GuardianClient._get_policy_owner` (returns empty string when the
+        # metadata fetch raises).
         yield router
 
 

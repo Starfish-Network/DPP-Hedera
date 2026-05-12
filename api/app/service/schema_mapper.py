@@ -22,6 +22,23 @@ def _as_dict(event: BaseModel | dict) -> dict:
     return event
 
 
+def _strip_nulls(value: Any) -> Any:
+    """Recursively drop keys whose value is None.
+
+    Guardian's JSON-LD validator 422s with `MISSING_PROPERTIES_IN_CONTEXT`
+    on null-valued keys the schema's `@context` doesn't declare — and
+    `model_dump(mode="json")` emits Optional fields with default None as
+    explicit nulls. Strip them before nesting under `event`.
+    """
+    if isinstance(value, list):
+        return [_strip_nulls(x) for x in value]
+    if not isinstance(value, dict):
+        return value
+    if not any(v is None or isinstance(v, (dict, list)) for v in value.values()):
+        return value
+    return {k: _strip_nulls(v) for k, v in value.items() if v is not None}
+
+
 def _lookup_dotted(d: dict, path: str) -> Any:
     cur: Any = d
     for seg in path.split("."):
@@ -56,8 +73,17 @@ def to_credential_subject(
         )
     mapped_type = policy.type_map.get(raw_type, raw_type) if policy.type_map else raw_type
 
-    subject: dict[str, Any] = dict(evt)
-    subject[policy.vc_type_field] = mapped_type
+    # MGS auto-injects `additionalProperties: false` at publish time, so the
+    # credentialSubject MUST contain only the schema-declared keys. The full
+    # event lives under `event` (FR-015).
+    subject: dict[str, Any] = {
+        policy.vc_type_field: mapped_type,
+        "eventHash": event_hash_hex or ("0x" + sha256_bytes32(evt).hex()),
+        "complianceStatus": "superseded" if supersedes else "compliant",
+        "policyVersion": policy.policy_version,
+        "issuedAt": _now_iso(),
+        "event": _strip_nulls(evt),
+    }
 
     for key, path in policy.required_hoists.items():
         value = _lookup_dotted(evt, path)
@@ -68,10 +94,6 @@ def to_credential_subject(
             )
         subject[key] = value
 
-    subject["eventHash"] = event_hash_hex or ("0x" + sha256_bytes32(evt).hex())
-    subject["complianceStatus"] = "superseded" if supersedes else "compliant"
-    subject["policyVersion"] = policy.policy_version
-    subject["issuedAt"] = _now_iso()
     if supersedes:
         subject["supersedes"] = supersedes
     return subject

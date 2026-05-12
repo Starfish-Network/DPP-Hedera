@@ -1,14 +1,11 @@
 import { useMemo, useState } from "react";
 import { ErrorPanel, SubmitResultPanel } from "../components/SubmitFlow";
 import { SamplePicker } from "../components/SamplePicker";
+import { usePollForVc } from "../hooks/usePollForVc";
 import { ApiError, submitGdstEvent } from "../lib/api";
 import { gdstSamples } from "../lib/samples";
 import type { SubmitResponse } from "../types/SubmitResponse";
 
-// VC polling is currently disabled — MGS isn't issuing event VCs (see the
-// open MGS support ticket). Submit pages render the HCS receipt + Guardian
-// forwarding status only. Re-enable by re-introducing usePollForVc + passing
-// `pollState`/`shouldPoll` into <SubmitResultPanel> once VCs flow.
 export function SubmitGdst() {
     const sampleKeys = useMemo(
         () => Object.keys(gdstSamples).sort((a, b) => a.localeCompare(b)),
@@ -18,6 +15,12 @@ export function SubmitGdst() {
     const [submitting, setSubmitting] = useState(false);
     const [result, setResult] = useState<SubmitResponse | null>(null);
     const [error, setError] = useState<ApiError | Error | null>(null);
+
+    const eventHashToPoll =
+        result?.guardian.status === "submitted" && result.isCompliant
+            ? result.eventHash
+            : null;
+    const pollState = usePollForVc(eventHashToPoll ? "gdst" : null, eventHashToPoll);
 
     async function onSubmit() {
         const sample = selectedKey ? gdstSamples[selectedKey] : null;
@@ -64,7 +67,9 @@ export function SubmitGdst() {
             </div>
 
             {error && <ErrorPanel error={error} />}
-            {result && <SubmitResultPanel result={result} slug="gdst" />}
+            {result && (
+                <SubmitResultPanel result={result} pollState={pollState} slug="gdst" />
+            )}
         </div>
     );
 }
