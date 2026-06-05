@@ -172,15 +172,18 @@ The API boots at **http://localhost:8000**, mounted at `/api/v1` (hot-reload ena
 
 ### Run locally (without Docker)
 
+Dependencies are managed by [uv](https://docs.astral.sh/uv/) (`api/pyproject.toml`
++ `api/uv.lock`). uv installs Python 3.12 and the deps for you — no manual venv.
+
 ```bash
 cd api
-python3.12 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-
-env $(grep -v '^#' .env.dev | xargs) \
-  uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+./setup.sh     # installs uv (if needed) + deps, seeds .env.dev
+./run.sh       # starts the API on :8000 (reads .env.dev)
 ```
+
+Or run commands directly with `uv run` (no venv activation), e.g.
+`uv run --locked uvicorn app.main:app --reload`. To change a dependency, edit
+`api/pyproject.toml`, run `uv lock`, and commit the updated `api/uv.lock`.
 
 ### Calling the API from Postman
 
