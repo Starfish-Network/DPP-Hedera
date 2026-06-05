@@ -1,19 +1,40 @@
 version: 2
 updates:
-  # Python deps are managed by uv (api/pyproject.toml + api/uv.lock). Dependabot
-  # re-resolves the whole lock per update, so it cannot propose a combination the
-  # resolver rejects.
+  # Python deps are managed by uv (api/pyproject.toml + api/uv.lock — the uv
+  # ecosystem covers both runtime deps and the dev group). Dependabot re-resolves
+  # the whole lock per update, so it cannot propose a set the resolver rejects.
+  #
+  # Grouped so a weekly run yields at most two PRs instead of one-per-package:
+  # runtime/app deps in one (review carefully — these ship), dev tooling in
+  # another (low-risk).
   - package-ecosystem: "uv"
     directory: "/api"
     schedule:
       interval: "weekly"
+    open-pull-requests-limit: 10
+    groups:
+      python-runtime:
+        applies-to: version-updates
+        dependency-type: "production"
+        patterns:
+          - "*"
+      python-dev:
+        applies-to: version-updates
+        dependency-type: "development"
+        patterns:
+          - "*"
     labels:
       - "dependencies"
       - "python"
 
+  # Keep the GitHub Actions in our workflows up to date — all bumps in one PR.
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
+    groups:
+      github-actions:
+        patterns:
+          - "*"
     labels:
       - "dependencies"
