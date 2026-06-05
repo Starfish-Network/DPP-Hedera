@@ -1,0 +1,19 @@
+version: 2
+updates:
+  # Python deps are managed by uv (api/pyproject.toml + api/uv.lock). Dependabot
+  # re-resolves the whole lock per update, so it cannot propose a combination the
+  # resolver rejects.
+  - package-ecosystem: "uv"
+    directory: "/api"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+      - "python"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
