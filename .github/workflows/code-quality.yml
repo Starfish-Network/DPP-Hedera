@@ -1,0 +1,42 @@
+name: Code quality
+
+on:
+  pull_request:
+    branches:
+      - dev
+
+jobs:
+  python-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      # Fails if api/uv.lock is missing, won't install, or has drifted from
+      # pyproject.toml — the resolver-safety gate this migration is about.
+      - name: Install locked dependencies
+        working-directory: api
+        run: uv sync --locked
+
+      # The app builds a Hedera client at import time, so the unit tests need a
+      # parseable key + the required settings. These are throwaway, non-secret
+      # values (mock KMS, a freshly generated ed25519 key); the unit tests run
+      # fully offline. Integration tests (external Hedera/Guardian calls) are
+      # excluded — they need real credentials provisioned as repo secrets.
+      - name: Run unit tests
+        working-directory: api
+        env:
+          ENV: test
+          OPERATOR_ID: "0.0.123"
+          TOPIC_ID: "0.0.456"
+          JWT_SECRET: ci-test-secret
+          KMS_PROVIDER: mock
+          KEY_TYPE: der
+        run: |
+          OPERATOR_KEY=$(uv run python -c "from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey as E; from cryptography.hazmat.primitives import serialization as s; print(E.generate().private_bytes(s.Encoding.DER, s.PrivateFormat.PKCS8, s.NoEncryption()).hex())")
+          export OPERATOR_KEY
+          uv run --locked pytest app/tests/unit -m "not integration" -v

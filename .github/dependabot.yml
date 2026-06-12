@@ -1,0 +1,44 @@
+version: 2
+updates:
+  # Python deps are managed by uv (api/pyproject.toml + api/uv.lock — the uv
+  # ecosystem covers both runtime deps and the dev group). Dependabot re-resolves
+  # the whole lock per update, so it cannot propose a set the resolver rejects.
+  #
+  # Grouping by risk: routine minor + patch bumps are batched (runtime and dev
+  # kept separate), but MAJOR bumps fall out of the groups into individual PRs so
+  # each potentially-breaking change is reviewed on its own.
+  - package-ecosystem: "uv"
+    directory: "/api"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    groups:
+      python-runtime-minor:
+        applies-to: version-updates
+        dependency-type: "production"
+        update-types:
+          - "minor"
+          - "patch"
+      python-dev-minor:
+        applies-to: version-updates
+        dependency-type: "development"
+        update-types:
+          - "minor"
+          - "patch"
+    labels:
+      - "dependencies"
+      - "python"
+
+  # GitHub Actions: bumps are almost all major-tag (v4 -> v6) CI tooling, so group
+  # all of them into one PR — restricting to minor/patch would leave nearly every
+  # action bump individual and defeat the grouping.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+    labels:
+      - "dependencies"
