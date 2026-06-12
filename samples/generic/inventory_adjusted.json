@@ -1,0 +1,9 @@
+{
+  "event_type": "inventory.adjusted",
+  "event_time": "2026-04-27T14:30:00Z",
+  "warehouse": "WH-LIS-01",
+  "sku": "SKU-TUNA-LOIN-1KG",
+  "delta": -12,
+  "reason": "damaged_in_handling",
+  "ref_event_hash": "0x9a9576d64c16212e73460723ebec693ae502247e9ae303525ad2059cc7a4cfce"
+}

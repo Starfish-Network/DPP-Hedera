@@ -1,3 +1,3 @@
-// URL segment + dispatch key for the two compliance policies. Matches
+// URL segment + dispatch key for the compliance policies. Matches
 // PolicyConfig.slug in api/app/service/guardian_policies.py.
-export type PolicySlug = "gdst" | "fsma";
+export type PolicySlug = "gdst" | "fsma" | "generic";

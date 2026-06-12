@@ -1,16 +1,16 @@
 import { useState } from "react";
-import { DryrunSubmit } from "../pages/DryrunSubmit";
 import { PolicyVcs } from "../pages/PolicyVcs";
 import { SubmitFsma } from "../pages/SubmitFsma";
 import { SubmitGdst } from "../pages/SubmitGdst";
+import { SubmitGeneric } from "../pages/SubmitGeneric";
 
-type DemoTab = "policies" | "submit_gdst" | "submit_fsma" | "dryrun";
+type DemoTab = "policies" | "submit_gdst" | "submit_fsma" | "submit_generic";
 
 const TABS: Array<{ id: DemoTab; label: string }> = [
     { id: "policies", label: "Policy VCs" },
     { id: "submit_gdst", label: "Submit GDST" },
     { id: "submit_fsma", label: "Submit FSMA" },
-    { id: "dryrun", label: "Issue VC (dry-run)" },
+    { id: "submit_generic", label: "Submit Generic" },
 ];
 
 export function GuardianDemo() {
@@ -37,7 +37,7 @@ export function GuardianDemo() {
                 {tab === "policies" && <PolicyVcs />}
                 {tab === "submit_gdst" && <SubmitGdst />}
                 {tab === "submit_fsma" && <SubmitFsma />}
-                {tab === "dryrun" && <DryrunSubmit />}
+                {tab === "submit_generic" && <SubmitGeneric />}
             </section>
         </div>
     );

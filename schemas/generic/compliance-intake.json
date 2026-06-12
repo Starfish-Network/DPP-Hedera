@@ -1,0 +1,84 @@
+{
+  "name": "GenericComplianceIntake",
+  "description": "Credential subject for events that don't follow GDST or FSMA conventions. Stamped server-side by api/app/service/schema_mapper.py::to_credential_subject. The full original event payload is preserved verbatim under `event`.",
+  "entity": "VC",
+  "document": {
+    "title": "GenericComplianceIntake",
+    "description": "Generic compliance credential subject",
+    "type": "object",
+    "properties": {
+      "eventHash": {
+        "title": "Event hash",
+        "description": "sha256 of the canonical event JSON, hex-encoded with 0x prefix.",
+        "type": "string",
+        "pattern": "^0x[0-9a-f]{64}$"
+      },
+      "eventType": {
+        "title": "Event type",
+        "description": "Caller-supplied free-form event type identifier.",
+        "type": "string",
+        "minLength": 1
+      },
+      "complianceStatus": {
+        "title": "Compliance status",
+        "description": "`compliant` for initial issuance, `superseded` for corrective VCs.",
+        "type": "string",
+        "enum": ["compliant", "superseded"]
+      },
+      "policyVersion": {
+        "title": "Policy version",
+        "description": "Semantic version of the generic Guardian policy.",
+        "type": "string"
+      },
+      "issuedAt": {
+        "title": "Issued at",
+        "description": "ISO-8601 timestamp stamped by the FastAPI mapper at submit time.",
+        "type": "string",
+        "format": "date-time"
+      },
+      "supersedes": {
+        "title": "Supersedes (event hash)",
+        "description": "When present, this VC replaces the one identified by the referenced eventHash.",
+        "type": "string"
+      },
+      "event": {
+        "title": "Original event payload",
+        "description": "Full verbatim event payload as posted by the operator.",
+        "type": "object"
+      },
+      "policyId": {
+        "title": "Policy id",
+        "description": "Runtime-injected by Guardian's requestVcDocumentBlock.",
+        "type": "string",
+        "readOnly": true
+      },
+      "guardianVersion": {
+        "title": "Guardian version",
+        "description": "Runtime-injected by Guardian's requestVcDocumentBlock.",
+        "type": "string",
+        "readOnly": true
+      },
+      "ref": {
+        "title": "Ref",
+        "description": "Runtime-injected by Guardian (parent VC reference; null for root submissions).",
+        "type": "string",
+        "readOnly": true
+      }
+    },
+    "required": [
+      "eventHash",
+      "eventType",
+      "complianceStatus",
+      "policyVersion",
+      "issuedAt"
+    ]
+  },
+  "context": {
+    "@context": {
+      "@version": 1.1,
+      "@vocab": "https://w3id.org/traceability/#undefinedTerm",
+      "id": "@id",
+      "type": "@type"
+    }
+  }
+}

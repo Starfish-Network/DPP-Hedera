@@ -32,6 +32,13 @@ const FIELDS: Record<PolicySlug, Array<{ key: string; label: string }>> = {
         { key: "issuedAt", label: "Issued At" },
         { key: "supersedes", label: "Supersedes" },
     ],
+    generic: [
+        { key: "eventType", label: "Event Type" },
+        { key: "complianceStatus", label: "Compliance Status" },
+        { key: "policyVersion", label: "Policy Version" },
+        { key: "issuedAt", label: "Issued At" },
+        { key: "supersedes", label: "Supersedes" },
+    ],
 };
 
 export function GuaranteedFieldsCard({ vc, slug }: Readonly<Props>) {

@@ -40,6 +40,8 @@ class Settings(BaseSettings):
     GUARDIAN_FSMA_POLICY_ID: str | None = None
     GUARDIAN_GDST_INTAKE_BLOCK_TAG: str | None = None
     GUARDIAN_FSMA_INTAKE_BLOCK_TAG: str | None = None
+    GUARDIAN_GENERIC_POLICY_ID: str | None = None
+    GUARDIAN_GENERIC_INTAKE_BLOCK_TAG: str | None = None
     # Dry-run sandbox policy (scripts/bootstrap_dryrun_policy.py creates it).
     # Used by POST /guardian/dryrun/submit/{slug} to issue real signed VCs in
     # the dry-run environment when published-policy workers are unavailable.

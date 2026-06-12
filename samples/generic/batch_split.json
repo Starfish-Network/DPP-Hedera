@@ -1,0 +1,11 @@
+{
+  "event_type": "batch.split",
+  "event_time": "2026-04-28T09:15:00Z",
+  "source_batch": "BATCH-2026-04-27-A",
+  "destination_batches": [
+    { "id": "BATCH-2026-04-28-A1", "quantity": 80, "unit": "kg" },
+    { "id": "BATCH-2026-04-28-A2", "quantity": 40, "unit": "kg" }
+  ],
+  "operator": "facility-LIS-01",
+  "note": "Customs hold required separating compliant from re-inspect lot."
+}

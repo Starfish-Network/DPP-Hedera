@@ -48,6 +48,15 @@ export async function submitFsmaEvent(event: StarfishEvent): Promise<SubmitRespo
     });
 }
 
+export async function submitGenericEvent(
+    event: Record<string, unknown>,
+): Promise<SubmitResponse> {
+    return request("/api/v1/events", {
+        method: "POST",
+        body: JSON.stringify(event),
+    });
+}
+
 export async function getVc(
     slug: PolicySlug,
     eventHash: string,
@@ -89,24 +98,6 @@ export async function getPolicyVc(slug: PolicySlug): Promise<PolicyVcEnvelope | 
         if (e instanceof ApiError && e.status === 404) return null;
         throw e;
     }
-}
-
-export interface DryrunSubmitResponse {
-    readonly policySlug: PolicySlug;
-    readonly policyId: string;
-    readonly vc: VerifiableCredential | null;
-    readonly vcId: string | null;
-    readonly raw: unknown;
-}
-
-export async function dryrunSubmit(
-    slug: PolicySlug,
-    payload: Record<string, unknown>,
-): Promise<DryrunSubmitResponse> {
-    return request(`/api/v1/guardian/dryrun/submit/${slug}`, {
-        method: "POST",
-        body: JSON.stringify(payload),
-    });
 }
 
 export async function injectBreakerFailure(): Promise<{ active: true }> {

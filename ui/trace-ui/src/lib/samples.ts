@@ -10,6 +10,10 @@ const fsmaFiles = import.meta.glob<{ default: StarfishEvent }>(
     "../../../../samples/fsma/*.json",
     { eager: true },
 );
+const genericFiles = import.meta.glob<{ default: Record<string, unknown> }>(
+    "../../../../samples/generic/*.json",
+    { eager: true },
+);
 
 function stem(path: string): string {
     const filename = path.split("/").pop() ?? "";
@@ -26,3 +30,4 @@ function asRecord<T>(files: Record<string, { default: T }>): Record<string, T> {
 
 export const gdstSamples: Record<string, Record<string, unknown>> = asRecord(gdstFiles);
 export const fsmaSamples: Record<string, StarfishEvent> = asRecord(fsmaFiles);
+export const genericSamples: Record<string, Record<string, unknown>> = asRecord(genericFiles);

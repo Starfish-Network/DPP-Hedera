@@ -75,8 +75,23 @@ FSMA = PolicyConfig(
     required_hoists={},
 )
 
+# Catch-all for operators not following GDST or FSMA conventions. The
+# schema accepts any payload with a non-empty `event_type`; the route at
+# /api/v1/events enforces the same minimum via Pydantic and forwards the
+# rest verbatim under `credentialSubject.event`.
+GENERIC = PolicyConfig(
+    slug="generic",
+    policy_id=settings.GUARDIAN_GENERIC_POLICY_ID,
+    intake_block_tag=settings.GUARDIAN_GENERIC_INTAKE_BLOCK_TAG,
+    policy_version="1.0.0",
+    source_type_field="event_type",
+    vc_type_field="eventType",
+    type_map={},
+    required_hoists={},
+)
 
-POLICIES: dict[str, PolicyConfig] = {p.slug: p for p in (GDST, FSMA)}
+
+POLICIES: dict[str, PolicyConfig] = {p.slug: p for p in (GDST, FSMA, GENERIC)}
 
 
 def _assert_registry_invariants() -> None:

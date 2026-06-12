@@ -119,11 +119,13 @@ function ManualReviewPanel() {
 const BUILD_SCRIPT: Record<PolicySlug, string> = {
     gdst: "scripts/build_gdst_policy.py",
     fsma: "scripts/build_fsma_policy.py",
+    generic: "scripts/build_generic_policy.py",
 };
 
 const RULE_PREDICATE: Record<PolicySlug, string> = {
     gdst: "gdst_min_rules",
     fsma: "fsma_min_rules",
+    generic: "(no rule predicate — generic events are always treated as compliant)",
 };
 
 function GuardianStatusInline({

@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from app.routes import trace
+from app.routes import events, trace
 from app.routes.epcis import epcis
 from app.routes.gdst import gdst
 from app.routes import guardian
@@ -12,6 +12,7 @@ app = FastAPI(title="Starfish Hedera Traceability API", version="1.0.0", root_pa
 
 app.include_router(gdst.router)
 app.include_router(epcis.router)
+app.include_router(events.router)
 app.include_router(trace.router)
 app.include_router(guardian.router)
 

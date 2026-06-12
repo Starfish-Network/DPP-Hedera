@@ -1,0 +1,13 @@
+{
+  "event_type": "shipment.arrived",
+  "event_time": "2026-04-27T10:00:00Z",
+  "container_id": "MSCU1234567",
+  "location": {
+    "name": "Port of Lisbon",
+    "code": "PTLIS",
+    "lat": 38.7,
+    "lng": -9.1
+  },
+  "carrier": "MSC",
+  "bill_of_lading": "BL-2026-04-27-001"
+}
